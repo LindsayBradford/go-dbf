@@ -1,0 +1,4 @@
+_obj
+bin/*.*
+pkg/linux_386/*.*
+
