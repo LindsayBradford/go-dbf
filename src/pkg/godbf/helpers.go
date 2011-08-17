@@ -3,29 +3,32 @@ package godbf
 import (
 	"os"
 	"io"
+	//"fmt"
 )
 
 // append data[]byte to slice and returns the new byte slice
-func Append(slice, data []byte) []byte {
+func appendSlice(slice, data []byte) []byte {
 	l := len(slice)
 	if l+len(data) > cap(slice) { // reallocate
 		// Allocate double what's needed, for future growth.
 		// increase capcity %20
-		cap := l+len(data)*(5/4)
-		newSlice := make([]byte, cap)
-		//newSlice := make([]byte, (l+len(data))*2)
+		//cap := (l+len(data))*(5/4)
+		//newSlice := make([]byte, cap)
+		newSlice := make([]byte, (l+len(data))*2)
 		// The copy function is predeclared and works for any slice type.
 		copy(newSlice, slice)
 		slice = newSlice
 	}
 	slice = slice[0 : l+len(data)]
+	//fmt.Printf("appendSlice son:%v\n", len(slice))
+	//fmt.Printf("appendSlice cap:%v\n", cap(slice))
 	for i, c := range data {
 		slice[l+i] = c
 	}
 	return slice
 }
 
-func ReadFile(filename string) ([]byte, os.Error) {
+func readFile(filename string) ([]byte, os.Error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err

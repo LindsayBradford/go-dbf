@@ -61,7 +61,7 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err os.
 	// create a decoder to decode file correctly
 	d := mahonia.NewDecoder(fileEncoding)
 
-	s, err := ReadFile(fileName)
+	s, err := readFile(fileName)
 
 	if err != nil {
 		fmt.Println(err)
@@ -185,11 +185,23 @@ func New(encoding string) (table *DbfTable) {
 	// no MDX file (index upon demand)
 	dt.dataStore[28] = 0x00
 
-	// language driver
-	dt.dataStore[28] = 0xCA // turkish 0xCA
-	//dt.dataStore[28] = 0x88 // turkish 0xCA
-
-
+	// set dbase language driver
+	// Huston we have problem!
+	// There is no easy way to deal with encoding issues. At least at the moment 
+	// I will try to find archaic encoding code defined by dbase standard (if there is any)
+	// for given encoding. If none math I will go with default ANSI.
+	//
+	// Despite this flag in set in dbase file, I will continue to use provide encoding for 
+	// the everything except this file encoding flag.
+	//
+	// Why? To make sure at least if you know the real encoding you can process text accordingly.
+	
+	if code, ok := encodingTable[lookup[encoding]]; ok {
+		dt.dataStore[28] = code
+	} else {
+		dt.dataStore[28] = 0x57 // ANSI
+	} 
+	
 	return dt
 }
 
@@ -237,9 +249,9 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err os
 	}
 
 	// first fill the field with space values
-	//for i := 0; i < fieldLength; i++ {
-	//	dt.dataStore[offset+recordOffset+i] = 0x20
-	//}
+	for i := 0; i < fieldLength; i++ {
+		dt.dataStore[offset+recordOffset+i] = 0x20
+	}
 
 	// write new value
 	switch dt.fields[fieldIndex].fieldType {
@@ -328,7 +340,7 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	}
 
 	newRecord := make([]byte, dt.lengthOfEachRecord)
-	dt.dataStore = Append(dt.dataStore, newRecord)
+	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
 	// and then increment number of records in dbase table  
@@ -452,14 +464,14 @@ func (dt *DbfTable) updateHeader() {
 
 	for i := range dt.Fields() {
 		lengthOfEachRecord += uint16(dt.Fields()[i].FieldLength())
-		slice = Append(slice, dt.Fields()[i].fieldStore[:])
+		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
 
 		// don't forget to update fieldMap. We need it to find the index of a field name
 		dt.fieldMap[dt.Fields()[i].FieldName()] = i
 	}
 
 	// end of file header terminator (0Dh)
-	slice = Append(slice, []byte{0x0D})
+	slice = appendSlice(slice, []byte{0x0D})
 
 	// now reset dt.dataStore slice with the updated one
 	dt.dataStore = slice
@@ -483,7 +495,7 @@ func (dt *DbfTable) updateHeader() {
 func (dt *DbfTable) SaveFile(filename string) (err os.Error) {
 
 	// don't forget to add dbase end of file marker which is 1Ah
-	dt.dataStore = Append(dt.dataStore, []byte{0x1A})
+	dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})
 
 	f, err := os.Create(filename)
 	if err != nil {
@@ -502,7 +514,7 @@ func (dt *DbfTable) SaveFile(filename string) (err os.Error) {
 	return
 }
 
-func (dt *DbfTable) GetRowSlice(row int) []string {
+func (dt *DbfTable) GetRowAsSlice(row int) []string {
 	
 	s := make([]string, len(dt.Fields()))
 	
