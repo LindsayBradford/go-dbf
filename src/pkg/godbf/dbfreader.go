@@ -2,10 +2,12 @@ package godbf
 
 import (
 	"fmt"
+	"errors"
 	"os"
 	"time"
 	"mahonia"
 	"strings"
+	"strconv"
 )
 
 type DbfTable struct {
@@ -57,14 +59,14 @@ func (df *DbfField) SetFieldName(fieldName string) {
 	df.fieldName = fieldName
 }
 
-func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err os.Error) {
+func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
 	// create a decoder to decode file correctly
 	d := mahonia.NewDecoder(fileEncoding)
 
 	s, err := readFile(fileName)
 
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
 	// Create and pupulate DbaseTable struct
@@ -94,13 +96,15 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err os.
 		fieldName := strings.Trim(d.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
 
-		var err os.Error
+		var err error
 
 		switch s[offset+11] {
 		case 'C':
 			err = dt.AddTextField(fieldName, s[offset+16])
 		case 'N':
 			err = dt.AddNumberField(fieldName, s[offset+16])
+		case 'F':
+			err = dt.AddFloatField(fieldName, s[offset+16])
 		case 'L':
 			err = dt.AddBooleanField(fieldName)
 		case 'D':
@@ -131,7 +135,7 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err os.
 	// set DbfTable dataStore slice that will store the complete file in memory
 	dt.dataStore = s
 
-	return dt, err
+	return dt, nil
 }
 
 // Create a new dbase table from the scratch
@@ -146,12 +150,12 @@ func New(encoding string) (table *DbfTable) {
 
 	// set whether or not this table created from the scratch
 	dt.cratedFromScratch = true
-
+	
 	// read dbase table header information
 	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.LocalTime().Year % 100)
-	dt.updateMonth = byte(time.LocalTime().Month)
-	dt.updateDay = byte(time.LocalTime().Day)
+	dt.updateYear = byte(time.Now().Year() % 100)
+	dt.updateMonth = byte(time.Now().Month())
+	dt.updateDay = byte(time.Now().YearDay())
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
@@ -206,12 +210,12 @@ func New(encoding string) (table *DbfTable) {
 }
 
 // Sets field value by index  
-func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err os.Error) {
+func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err error) {
 
 	fieldIndex, ok := dt.fieldMap[fieldName]
 
 	if !ok {
-		return os.NewError("Field name \"" + fieldName + "\" does not exist")
+		return errors.New("Field name \"" + fieldName + "\" does not exist")
 	}
 
 	// set field value and return
@@ -220,7 +224,7 @@ func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string)
 }
 
 // Sets field value by name  
-func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err os.Error) {
+func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err error) {
 
 	e := mahonia.NewEncoder(dt.fileEncoding)
 	b := []byte(e.ConvertString(value))
@@ -321,12 +325,12 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 }
 
 // FieldValueByName retuns the value of a field given row number and fieldName provided
-func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err os.Error) {
+func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
 
 	fieldIndex, ok := dt.fieldMap[fieldName]
 
 	if !ok {
-		err = os.NewError("Field name \"" + fieldName + "\" does not exist")
+		err = errors.New("Field name \"" + fieldName + "\" does not exist")
 		return
 	}
 	//fmt.Printf("fieldIndex:%v\n", fieldIndex)
@@ -358,19 +362,23 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	return
 }
 
-func (dt *DbfTable) AddTextField(fieldName string, length uint8) (err os.Error) {
+func (dt *DbfTable) AddTextField(fieldName string, length uint8) (err error) {
 	return dt.addField(fieldName, 'C', length)
 }
 
-func (dt *DbfTable) AddNumberField(fieldName string, length uint8) (err os.Error) {
+func (dt *DbfTable) AddNumberField(fieldName string, length uint8) (err error) {
 	return dt.addField(fieldName, 'N', length)
 }
 
-func (dt *DbfTable) AddBooleanField(fieldName string) (err os.Error) {
+func (dt *DbfTable) AddFloatField(fieldName string, length uint8) (err error) {
+	return dt.addField(fieldName, 'F', length)
+}
+
+func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
 	return dt.addField(fieldName, 'L', 1)
 }
 
-func (dt *DbfTable) AddDateField(fieldName string) (err os.Error) {
+func (dt *DbfTable) AddDateField(fieldName string) (err error) {
 	return dt.addField(fieldName, 'D', 8)
 }
 
@@ -399,16 +407,16 @@ func (df *DbfField) FieldLength() uint8 {
 	return df.fieldLength
 }
 
-func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (err os.Error) {
+func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (err error) {
 
 	if dt.dataEntryStarted {
-		return os.NewError("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
+		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
 	}
 
 	s := dt.getNormalizedFieldName(fieldName)
 
 	if dt.isFieldExist(s) {
-		return os.NewError("Field name \"" + s + "\" already exist!")
+		return errors.New("Field name \"" + s + "\" already exist!")
 	}
 
 	df := new(DbfField)
@@ -492,7 +500,7 @@ func (dt *DbfTable) updateHeader() {
 	return
 }
 
-func (dt *DbfTable) SaveFile(filename string) (err os.Error) {
+func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	// don't forget to add dbase end of file marker which is 1Ah
 	dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})

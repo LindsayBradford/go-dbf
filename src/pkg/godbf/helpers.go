@@ -28,7 +28,7 @@ func appendSlice(slice, data []byte) []byte {
 	return slice
 }
 
-func readFile(filename string) ([]byte, os.Error) {
+func readFile(filename string) ([]byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func readFile(filename string) ([]byte, os.Error) {
 	if err != nil {
 		return nil, err
 	}
-	buf := make([]byte, d.Size)
+	buf := make([]byte, d.Size())
 	_, err = io.ReadFull(f, buf)
 	if err != nil {
 		return nil, err
