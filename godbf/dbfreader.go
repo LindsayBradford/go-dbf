@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 	"time"
-	"mahonia"
+	"code.google.com/p/mahonia"
 	"strings"
 	"strconv"
 )
