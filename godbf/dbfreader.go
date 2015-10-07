@@ -40,7 +40,7 @@ type DbfTable struct {
 	dataEntryStarted bool
 
 	// cratedFromScratch is used before adding new fields to increment nu
-	cratedFromScratch bool
+	createdFromScratch bool
 
 	// encoding of dbase file
 	fileEncoding string
@@ -148,8 +148,8 @@ func New(encoding string) (table *DbfTable) {
 
 	dt.fileEncoding = encoding
 
-	// set whether or not this table created from the scratch
-	dt.cratedFromScratch = true
+	// set whether or not this table has been created from scratch
+	dt.createdFromScratch = true
 
 	// read dbase table header information
 	dt.fileSignature = 0x03
@@ -466,8 +466,8 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 
 	dt.fields = append(dt.fields, *df)
 
-	// if cratedFromScratch is true we need to update dbase header to reflect the changes we have made
-	if dt.cratedFromScratch {
+	// if createdFromScratch we need to update dbase header to reflect the changes we have made
+	if dt.createdFromScratch {
 		dt.updateHeader()
 	}
 
