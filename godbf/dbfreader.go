@@ -431,7 +431,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 	s := dt.getNormalizedFieldName(fieldName)
 
 	if dt.isFieldExist(s) {
-		return errors.New("Field name \"" + s + "\" already exist!")
+		return errors.New("Field name \"" + s + "\" already exists!")
 	}
 
 	df := new(DbfField)
@@ -462,7 +462,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 	// length of field
 	df.fieldStore[16] = length
 
-	//fmt.Printf("addField | append:%v", df)
+	//fmt.Printf("addField | append:%v\n", df)
 
 	dt.fields = append(dt.fields, *df)
 
@@ -517,24 +517,31 @@ func (dt *DbfTable) updateHeader() {
 
 func (dt *DbfTable) SaveFile(filename string) (err error) {
 
-	// don't forget to add dbase end of file marker which is 1Ah
-	dt.dataStore = appendSlice(dt.dataStore, []byte{0x1A})
-
 	f, err := os.Create(filename)
-	if err != nil {
-		fmt.Printf("Hata:%v", err)
-	}
-	defer f.Close()
-
-	n, err := f.Write(dt.dataStore)
-
+	
 	if err != nil {
 		return err
-	} else {
-		fmt.Printf("%v bytes written to the file '%v'", n, filename)
 	}
 
-	return
+	defer f.Close()
+
+	dsBytes, dsErr := f.Write(dt.dataStore)
+	
+	if dsErr != nil  {
+		return dsErr
+	}
+
+	// Add dbase end of file marker (1Ah)
+
+    footerByte, footerErr := f.Write([]byte{0x1A})
+
+	if footerErr != nil {
+		return footerErr
+	}
+
+    fmt.Printf("%v bytes written to file '%v'.\n", dsBytes + footerByte, filename)
+
+	return nil
 }
 
 func (dt *DbfTable) GetRowAsSlice(row int) []string {
