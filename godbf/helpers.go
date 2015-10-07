@@ -1,8 +1,8 @@
 package godbf
 
 import (
-	"os"
 	"io"
+	"os"
 	//"fmt"
 )
 
@@ -46,7 +46,6 @@ func readFile(filename string) ([]byte, error) {
 	return buf, err
 }
 
-
 func uint32ToBytes(x uint32) []byte {
 	var buf [4]byte
 	buf[0] = byte(x >> 0)
@@ -65,7 +64,6 @@ func int32ToBytes(x int32) []byte {
 	return buf[:]
 }
 
-
 func uint64ToBytes(x uint64) []byte {
 	var buf [8]byte
 	buf[0] = byte(x >> 0)
@@ -76,10 +74,9 @@ func uint64ToBytes(x uint64) []byte {
 	buf[5] = byte(x >> 40)
 	buf[6] = byte(x >> 48)
 	buf[7] = byte(x >> 56)
-	
+
 	return buf[:]
 }
-
 
 func int64ToBytes(x uint64) []byte {
 	var buf [8]byte
@@ -91,10 +88,9 @@ func int64ToBytes(x uint64) []byte {
 	buf[5] = byte(x >> 40)
 	buf[6] = byte(x >> 48)
 	buf[7] = byte(x >> 56)
-	
+
 	return buf[:]
 }
-
 
 func bytesToInt32le(b []byte) int32 {
 	return int32(uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24)

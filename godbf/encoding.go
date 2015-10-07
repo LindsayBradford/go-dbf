@@ -1,7 +1,7 @@
 package godbf
 
-import (	
-	"fmt"	
+import (
+	"fmt"
 )
 
 var lookup map[string]string
@@ -10,7 +10,7 @@ var encodingTable map[string]byte // this map is used to convert dbase fileencod
 
 func main() {
 	//dizi := []int{437, 850, 1252, 10000, 865, 437, 850, 437, 437, 850, 437, 850, 437, 850, 932, 850, 437, 850, 865, 437, 437, 850, 437, 863, 850, 852, 852, 852, 860, 850, 866, 850, 852, 936, 949, 950, 874, 1252, 1252, 852, 866, 865, 861, 895, 620, 737, 857, 863, 950, 949, 936, 932, 874, 737, 852, 857, 10007, 10029, 10006, 1250, 1251, 1254, 1253, 1257}
-			
+
 	if code, ok := encodingTable[lookup["l5"]]; ok {
 		fmt.Printf("code=%x", code)
 	} else {
@@ -801,10 +801,10 @@ func init() {
 	// dbase file encodings
 	// caution! I am not sure if this mapping are really true.
 	encoding = make(map[int]byte)
-	encoding[437] = 0x01   //DOS USA code page 437 
-	encoding[850] = 0x02   // DOS Multilingual code page 850 
-	encoding[1252] = 0x03  // Windows ANSI code page 1252 
-	encoding[10000] = 0x04 // Standard Macintosh 
+	encoding[437] = 0x01   //DOS USA code page 437
+	encoding[850] = 0x02   // DOS Multilingual code page 850
+	encoding[1252] = 0x03  // Windows ANSI code page 1252
+	encoding[10000] = 0x04 // Standard Macintosh
 	encoding[865] = 0x08   // Danish OEM
 	encoding[437] = 0x09   // Dutch OEM
 	encoding[850] = 0x0A   // Dutch OEM Secondary codepage
@@ -845,8 +845,8 @@ func init() {
 	encoding[866] = 0x65   // Russian MSDOS
 	encoding[865] = 0x66   // Nordic MSDOS
 	encoding[861] = 0x67   // Icelandic MSDOS
-	encoding[895] = 0x68   // Kamenicky (Czech) MS-DOS 
-	encoding[620] = 0x69   // Mazovia (Polish) MS-DOS 
+	encoding[895] = 0x68   // Kamenicky (Czech) MS-DOS
+	encoding[620] = 0x69   // Mazovia (Polish) MS-DOS
 	encoding[737] = 0x6A   // Greek MSDOS (437G)
 	encoding[857] = 0x6B   // Turkish MSDOS
 	encoding[863] = 0x6C   // FrenchCanadian MSDOS
@@ -855,14 +855,14 @@ func init() {
 	encoding[936] = 0x7A   // PRC GBK
 	encoding[932] = 0x7B   // Japanese Shift-JIS
 	encoding[874] = 0x7C   // Thai Windows/MSDOS
-	encoding[1255] = 0x7D  // Hebrew Windows 
-	encoding[1256] = 0x7E  // Arabic Windows 
+	encoding[1255] = 0x7D  // Hebrew Windows
+	encoding[1256] = 0x7E  // Arabic Windows
 	encoding[737] = 0x86   // Greek OEM
 	encoding[852] = 0x87   // Slovenian OEM
 	encoding[857] = 0x88   // Turkish OEM
-	encoding[10007] = 0x96 // Russian Macintosh 
-	encoding[10029] = 0x97 // Eastern European Macintosh 
-	encoding[10006] = 0x98 // Greek Macintosh 
+	encoding[10007] = 0x96 // Russian Macintosh
+	encoding[10029] = 0x97 // Eastern European Macintosh
+	encoding[10006] = 0x98 // Greek Macintosh
 	encoding[1250] = 0xC8  // Eastern European Windows
 	encoding[1251] = 0xC9  // Russian Windows
 	encoding[1254] = 0xCA  // Turkish Windows

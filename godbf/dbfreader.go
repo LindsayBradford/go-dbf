@@ -1,13 +1,13 @@
 package godbf
 
 import (
-	"fmt"
-	"errors"
-	"os"
-	"time"
 	"code.google.com/p/mahonia"
-	"strings"
+	"errors"
+	"fmt"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type DbfTable struct {
@@ -16,9 +16,9 @@ type DbfTable struct {
 	updateYear            uint8 // Date of last update; in YYMMDD format.
 	updateMonth           uint8
 	updateDay             uint8
-	numberOfRecords       uint32   // Number of records in the table. 
-	numberOfBytesInHeader uint16   // Number of bytes in the header. 
-	lengthOfEachRecord    uint16   // Number of bytes in the record. 
+	numberOfRecords       uint32   // Number of records in the table.
+	numberOfBytesInHeader uint16   // Number of bytes in the header.
+	lengthOfEachRecord    uint16   // Number of bytes in the record.
 	reservedBytes         [20]byte // Reserved bytes
 	fieldDescriptor       [32]byte // Field descriptor array
 	fieldTerminator       int8     // 0Dh stored as the field terminator.
@@ -32,7 +32,7 @@ type DbfTable struct {
 	fieldMap map[string]int
 	/*
 		"dataEntryStarted" flag is used to control whether we can change
-		dbase table structure when data enty started you can not change 
+		dbase table structure when data enty started you can not change
 		the schema of the file if you are reading from an existing file this
 		file will be set to "true". This means you can not modify the schema
 		of a dbase table that you loaded from a file.
@@ -150,7 +150,7 @@ func New(encoding string) (table *DbfTable) {
 
 	// set whether or not this table created from the scratch
 	dt.cratedFromScratch = true
-	
+
 	// read dbase table header information
 	dt.fileSignature = 0x03
 	dt.updateYear = byte(time.Now().Year() % 100)
@@ -191,25 +191,25 @@ func New(encoding string) (table *DbfTable) {
 
 	// set dbase language driver
 	// Huston we have problem!
-	// There is no easy way to deal with encoding issues. At least at the moment 
+	// There is no easy way to deal with encoding issues. At least at the moment
 	// I will try to find archaic encoding code defined by dbase standard (if there is any)
 	// for given encoding. If none math I will go with default ANSI.
 	//
-	// Despite this flag in set in dbase file, I will continue to use provide encoding for 
+	// Despite this flag in set in dbase file, I will continue to use provide encoding for
 	// the everything except this file encoding flag.
 	//
 	// Why? To make sure at least if you know the real encoding you can process text accordingly.
-	
+
 	if code, ok := encodingTable[lookup[encoding]]; ok {
 		dt.dataStore[28] = code
 	} else {
 		dt.dataStore[28] = 0x57 // ANSI
-	} 
-	
+	}
+
 	return dt
 }
 
-// Sets field value by index  
+// Sets field value by index
 func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err error) {
 
 	fieldIndex, ok := dt.fieldMap[fieldName]
@@ -223,7 +223,7 @@ func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string)
 	return
 }
 
-// Sets field value by name  
+// Sets field value by name
 func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err error) {
 
 	e := mahonia.NewEncoder(dt.fileEncoding)
@@ -285,7 +285,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
-	// create decoder to convert bytes to utf-8 	
+	// create decoder to convert bytes to utf-8
 	d := mahonia.NewDecoder(dt.fileEncoding)
 
 	offset := int(dt.numberOfBytesInHeader)
@@ -304,20 +304,19 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	}
 
 	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
-	
-	for i:=0; i<len(temp); i++ {
+
+	for i := 0; i < len(temp); i++ {
 		if temp[i] == 0x00 {
 			temp = temp[0:i]
 			break
 		}
 	}
-	
+
 	s := d.ConvertString(string(temp))
 	//fmt.Printf("utf-8 value:[%#v]\n", s)
-		
+
 	value = strings.TrimSpace(s)
-	
-	
+
 	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
 	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
@@ -328,7 +327,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
 
 	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
-	
+
 	return strconv.ParseFloat(fieldValueAsString, 64)
 }
 
@@ -336,7 +335,7 @@ func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value fl
 func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
 
 	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
-	
+
 	return strconv.ParseInt(fieldValueAsString, 0, 64)
 }
 
@@ -363,7 +362,7 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
-	// and then increment number of records in dbase table  
+	// and then increment number of records in dbase table
 	newRecordNumber = int(dt.numberOfRecords)
 
 	//fmt.Printf("Number of rows before:%d\n", dt.numberOfRecords)
@@ -450,14 +449,14 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 		//fmt.Printf("i:%s\n", string(slice[i]))
 	}
 
-	// Field names are terminated by 00h	
+	// Field names are terminated by 00h
 	df.fieldStore[10] = 0x00
 
 	// Set field's data type
 	// C (Character) 	All OEM code page characters.
 	// D (Date) 		Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
 	// N (Numeric) 		- . 0 1 2 3 4 5 6 7 8 9
-	// L (Logical) 		? Y y N n T t F f (? when not initialized). 
+	// L (Logical) 		? Y y N n T t F f (? when not initialized).
 	df.fieldStore[11] = fieldType
 
 	// length of field
@@ -539,13 +538,13 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 }
 
 func (dt *DbfTable) GetRowAsSlice(row int) []string {
-	
+
 	s := make([]string, len(dt.Fields()))
-	
+
 	for i := 0; i < len(dt.Fields()); i++ {
 		s[i] = dt.FieldValue(row, i)
 	}
-	
+
 	return s
 }
 
@@ -561,7 +560,7 @@ func (dt *DbfTable) isFieldExist(fieldName string) bool {
 }
 
 /*
-	getByteSlice converts value to byte slice according to given encoding and return 
+	getByteSlice converts value to byte slice according to given encoding and return
 	a slice that is length equals to numberOfBytes or less if the string is shorter than
 	numberOfBytes
 */
