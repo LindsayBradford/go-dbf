@@ -3,12 +3,17 @@ package godbf
 import (
 	"code.google.com/p/mahonia"
 	"errors"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type DbfField struct {
+	fieldName   string
+	fieldType   string
+	fieldLength uint8
+	fieldStore  [32]byte
+}
 
 type DbfTable struct {
 	// dbase file header information
@@ -31,11 +36,11 @@ type DbfTable struct {
 	// used to map field names to index
 	fieldMap map[string]int
 	/*
-		"dataEntryStarted" flag is used to control whether we can change
-		dbase table structure when data enty started you can not change
-		the schema of the file if you are reading from an existing file this
-		file will be set to "true". This means you can not modify the schema
-		of a dbase table that you loaded from a file.
+	   "dataEntryStarted" flag is used to control whether we can change
+	   dbase table structure when data enty started you can not change
+	   the schema of the file if you are reading from an existing file this
+	   file will be set to "true". This means you can not modify the schema
+	   of a dbase table that you loaded from a file.
 	*/
 	dataEntryStarted bool
 
@@ -46,167 +51,6 @@ type DbfTable struct {
 	fileEncoding string
 	// keeps the dbase table in memory as byte array
 	dataStore []byte
-}
-
-type DbfField struct {
-	fieldName   string
-	fieldType   string
-	fieldLength uint8
-	fieldStore  [32]byte
-}
-
-func (df *DbfField) SetFieldName(fieldName string) {
-	df.fieldName = fieldName
-}
-
-func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
-	// create a decoder to decode file correctly
-	d := mahonia.NewDecoder(fileEncoding)
-
-	s, err := readFile(fileName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Create and pupulate DbaseTable struct
-	dt := new(DbfTable)
-
-	dt.fileEncoding = fileEncoding
-
-	// read dbase table header information
-	dt.fileSignature = s[0]
-	dt.updateYear = s[1]
-	dt.updateMonth = s[2]
-	dt.updateDay = s[3]
-	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
-	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
-	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
-
-	// create fieldMap to taranslate field name to index
-	dt.fieldMap = make(map[string]int)
-
-	// Number of fields in dbase table
-	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
-
-	// populate dbf fields
-	for i := 0; i < int(dt.numberOfFields); i++ {
-		offset := (i * 32) + 32
-
-		fieldName := strings.Trim(d.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
-		dt.fieldMap[fieldName] = i
-
-		var err error
-
-		switch s[offset+11] {
-		case 'C':
-			err = dt.AddTextField(fieldName, s[offset+16])
-		case 'N':
-			err = dt.AddNumberField(fieldName, s[offset+16])
-		case 'F':
-			err = dt.AddFloatField(fieldName, s[offset+16])
-		case 'L':
-			err = dt.AddBooleanField(fieldName)
-		case 'D':
-			err = dt.AddDateField(fieldName)
-		}
-
-		// Check return value for errors
-		if err != nil {
-			return nil, err
-		}
-
-		//fmt.Printf("Field name:%v\n", fieldName)
-		//fmt.Printf("Field data type:%v\n", string(s[offset+11]))
-		//fmt.Printf("Field length:%v\n", s[offset+16])
-		//fmt.Println("-----------------------------------------------")
-	}
-
-	//fmt.Printf("DbfReader:\n%#v\n", dt)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
-
-	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("lenght of each record:%v\n", (dt.lengthOfEachRecord))
-
-	// Since we are reading dbase file from the disk at least at this
-	// phase changing schema of dbase file is not allowed.
-	dt.dataEntryStarted = true
-
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
-
-	return dt, nil
-}
-
-// Create a new dbase table from the scratch
-func New(encoding string) (table *DbfTable) {
-	// create a decoder to decode file correctly
-	//d := mahonia.NewDecoder(encoding)
-
-	// Create and pupulate DbaseTable struct
-	dt := new(DbfTable)
-
-	dt.fileEncoding = encoding
-
-	// set whether or not this table has been created from scratch
-	dt.createdFromScratch = true
-
-	// read dbase table header information
-	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() % 100)
-	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().YearDay())
-	dt.numberOfRecords = 0
-	dt.numberOfBytesInHeader = 32
-	dt.lengthOfEachRecord = 0
-
-	// create fieldMap to taranslate field name to index
-	dt.fieldMap = make(map[string]int)
-
-	// Number of fields in dbase table
-	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
-
-	s := make([]byte, dt.numberOfBytesInHeader)
-
-	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
-
-	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("lenght of each record:%v\n", (dt.lengthOfEachRecord))
-
-	// Since we are reading dbase file from the disk at least at this
-	// phase changing schema of dbase file is not allowed.
-	dt.dataEntryStarted = false
-
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
-
-	dt.dataStore[0] = dt.fileSignature
-	dt.dataStore[1] = dt.updateYear
-	dt.dataStore[2] = dt.updateMonth
-	dt.dataStore[3] = dt.updateDay
-
-	// no MDX file (index upon demand)
-	dt.dataStore[28] = 0x00
-
-	// set dbase language driver
-	// Huston we have problem!
-	// There is no easy way to deal with encoding issues. At least at the moment
-	// I will try to find archaic encoding code defined by dbase standard (if there is any)
-	// for given encoding. If none math I will go with default ANSI.
-	//
-	// Despite this flag in set in dbase file, I will continue to use provide encoding for
-	// the everything except this file encoding flag.
-	//
-	// Why? To make sure at least if you know the real encoding you can process text accordingly.
-
-	if code, ok := encodingTable[lookup[encoding]]; ok {
-		dt.dataStore[28] = code
-	} else {
-		dt.dataStore[28] = 0x57 // ANSI
-	}
-
-	return dt
 }
 
 // Sets field value by index
@@ -280,7 +124,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 	//fmt.Printf("field index:%#v\n", fieldIndex)
 	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].fieldLength)
 	//fmt.Printf("string to byte:%#v\n", b)
-
 }
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
@@ -407,21 +250,6 @@ func (dt *DbfTable) Fields() []DbfField {
 	return dt.fields
 }
 
-// FieldName returns fieldName
-func (df *DbfField) FieldName() string {
-	return df.fieldName
-}
-
-// FieldType returns fieldType
-func (df *DbfField) FieldType() string {
-	return df.fieldType
-}
-
-// FieldName returns fieldName
-func (df *DbfField) FieldLength() uint8 {
-	return df.fieldLength
-}
-
 func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (err error) {
 
 	if dt.dataEntryStarted {
@@ -453,10 +281,10 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 	df.fieldStore[10] = 0x00
 
 	// Set field's data type
-	// C (Character) 	All OEM code page characters.
-	// D (Date) 		Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
-	// N (Numeric) 		- . 0 1 2 3 4 5 6 7 8 9
-	// L (Logical) 		? Y y N n T t F f (? when not initialized).
+	// C (Character)  All OEM code page characters.
+	// D (Date)     Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
+	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
+	// L (Logical)    ? Y y N n T t F f (? when not initialized).
 	df.fieldStore[11] = fieldType
 
 	// length of field
@@ -486,11 +314,11 @@ func (dt *DbfTable) updateHeader() {
 	var lengthOfEachRecord uint16 = 0
 
 	for i := range dt.Fields() {
-		lengthOfEachRecord += uint16(dt.Fields()[i].FieldLength())
+		lengthOfEachRecord += uint16(dt.Fields()[i].fieldLength)
 		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
 
 		// don't forget to update fieldMap. We need it to find the index of a field name
-		dt.fieldMap[dt.Fields()[i].FieldName()] = i
+		dt.fieldMap[dt.Fields()[i].fieldName] = i
 	}
 
 	// end of file header terminator (0Dh)
@@ -513,35 +341,6 @@ func (dt *DbfTable) updateHeader() {
 	dt.dataStore[11] = s[1]
 
 	return
-}
-
-func (dt *DbfTable) SaveFile(filename string) (err error) {
-
-	f, err := os.Create(filename)
-
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	dsBytes, dsErr := f.Write(dt.dataStore)
-
-	if dsErr != nil {
-		return dsErr
-	}
-
-	// Add dbase end of file marker (1Ah)
-
-	footerByte, footerErr := f.Write([]byte{0x1A})
-
-	if footerErr != nil {
-		return footerErr
-	}
-
-	fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
-
-	return nil
 }
 
 func (dt *DbfTable) GetRowAsSlice(row int) []string {
@@ -567,9 +366,9 @@ func (dt *DbfTable) HasField(fieldName string) bool {
 }
 
 /*
-	getByteSlice converts value to byte slice according to given encoding and return
-	a slice that is length equals to numberOfBytes or less if the string is shorter than
-	numberOfBytes
+  getByteSlice converts value to byte slice according to given encoding and return
+  a slice that is length equals to numberOfBytes or less if the string is shorter than
+  numberOfBytes
 */
 func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
 	e := mahonia.NewEncoder(dt.fileEncoding)
@@ -595,4 +394,75 @@ func (dt *DbfTable) getNormalizedFieldName(name string) (s string) {
 	s = d.ConvertString(string(b))
 
 	return
+}
+
+// Create a new dbase table from scratch
+func New(encoding string) (table *DbfTable) {
+	// create a decoder to decode file correctly
+	//d := mahonia.NewDecoder(encoding)
+
+	// Create and populate DbaseTable struct
+	dt := new(DbfTable)
+
+	dt.fileEncoding = encoding
+
+	// set whether or not this table has been created from scratch
+	dt.createdFromScratch = true
+
+	// read dbase table header information
+	dt.fileSignature = 0x03
+	dt.updateYear = byte(time.Now().Year() % 100)
+	dt.updateMonth = byte(time.Now().Month())
+	dt.updateDay = byte(time.Now().YearDay())
+	dt.numberOfRecords = 0
+	dt.numberOfBytesInHeader = 32
+	dt.lengthOfEachRecord = 0
+
+	// create fieldMap to taranslate field name to index
+	dt.fieldMap = make(map[string]int)
+
+	// Number of fields in dbase table
+	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+
+	s := make([]byte, dt.numberOfBytesInHeader)
+
+	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
+
+	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
+	//fmt.Printf("lenght of each record:%v\n", (dt.lengthOfEachRecord))
+
+	// Since we are reading dbase file from the disk at least at this
+	// phase changing schema of dbase file is not allowed.
+	dt.dataEntryStarted = false
+
+	// set DbfTable dataStore slice that will store the complete file in memory
+	dt.dataStore = s
+
+	dt.dataStore[0] = dt.fileSignature
+	dt.dataStore[1] = dt.updateYear
+	dt.dataStore[2] = dt.updateMonth
+	dt.dataStore[3] = dt.updateDay
+
+	// no MDX file (index upon demand)
+	dt.dataStore[28] = 0x00
+
+	// set dbase language driver
+	// Huston we have problem!
+	// There is no easy way to deal with encoding issues. At least at the moment
+	// I will try to find archaic encoding code defined by dbase standard (if there is any)
+	// for given encoding. If none match I will go with default ANSI.
+	//
+	// Despite this flag in set in dbase file, I will continue to use provide encoding for
+	// the everything except this file encoding flag.
+	//
+	// Why? To make sure at least if you know the real encoding you can process text accordingly.
+
+	if code, ok := encodingTable[lookup[encoding]]; ok {
+		dt.dataStore[28] = code
+	} else {
+		dt.dataStore[28] = 0x57 // ANSI
+	}
+
+	return dt
 }
