@@ -50,9 +50,9 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err err
 		case 'C':
 			err = dt.AddTextField(fieldName, s[offset+16])
 		case 'N':
-			err = dt.AddNumberField(fieldName, s[offset+16])
+			err = dt.AddNumberField(fieldName, s[offset+16], s[offset+17])
 		case 'F':
-			err = dt.AddFloatField(fieldName, s[offset+16])
+			err = dt.AddFloatField(fieldName, s[offset+16], s[offset+17])
 		case 'L':
 			err = dt.AddBooleanField(fieldName)
 		case 'D':

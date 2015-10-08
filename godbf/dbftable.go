@@ -9,10 +9,11 @@ import (
 )
 
 type DbfField struct {
-	fieldName   string
-	fieldType   string
-	fieldLength uint8
-	fieldStore  [32]byte
+	fieldName          string
+	fieldType          string
+	fieldLength        uint8
+	fieldDecimalPlaces uint8
+	fieldStore         [32]byte
 }
 
 type DbfTable struct {
@@ -107,7 +108,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 		for i := 0; i < len(b) && i < fieldLength; i++ {
 			dt.dataStore[offset+recordOffset+i] = b[i]
 		}
-	case "N":
+	case "N", "F":
 		for i := 0; i < fieldLength; i++ {
 			// fmt.Printf("i:%v\n", i)
 			if i < len(b) {
@@ -221,23 +222,23 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 }
 
 func (dt *DbfTable) AddTextField(fieldName string, length uint8) (err error) {
-	return dt.addField(fieldName, 'C', length)
-}
-
-func (dt *DbfTable) AddNumberField(fieldName string, length uint8) (err error) {
-	return dt.addField(fieldName, 'N', length)
-}
-
-func (dt *DbfTable) AddFloatField(fieldName string, length uint8) (err error) {
-	return dt.addField(fieldName, 'F', length)
+	return dt.addField(fieldName, 'C', length, 0)
 }
 
 func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
-	return dt.addField(fieldName, 'L', 1)
+	return dt.addField(fieldName, 'L', 1, 0)
 }
 
 func (dt *DbfTable) AddDateField(fieldName string) (err error) {
-	return dt.addField(fieldName, 'D', 8)
+	return dt.addField(fieldName, 'D', 8, 0)
+}
+
+func (dt *DbfTable) AddNumberField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, 'N', length, decimalPlaces)
+}
+
+func (dt *DbfTable) AddFloatField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, 'F', length, decimalPlaces)
 }
 
 // NumberOfRecords return number of rows in dbase table
@@ -250,7 +251,7 @@ func (dt *DbfTable) Fields() []DbfField {
 	return dt.fields
 }
 
-func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (err error) {
+func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8, decimalPlaces uint8) (err error) {
 
 	if dt.dataEntryStarted {
 		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
@@ -266,6 +267,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 	df.fieldName = normalizedFieldName
 	df.fieldType = string(fieldType)
 	df.fieldLength = length
+	df.fieldDecimalPlaces = decimalPlaces
 
 	slice := dt.convertToByteSlice(normalizedFieldName, 10)
 
@@ -284,11 +286,16 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8) (er
 	// C (Character)  All OEM code page characters.
 	// D (Date)     Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
 	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
+	// F (Floating Point)   - . 0 1 2 3 4 5 6 7 8 9
 	// L (Logical)    ? Y y N n T t F f (? when not initialized).
 	df.fieldStore[11] = fieldType
 
 	// length of field
 	df.fieldStore[16] = length
+
+	// number of decimal places
+	// Applicable only to number/float
+	df.fieldStore[17] = df.fieldDecimalPlaces
 
 	//fmt.Printf("addField | append:%v\n", df)
 
@@ -363,6 +370,22 @@ func (dt *DbfTable) HasField(fieldName string) bool {
 	}
 
 	return false
+}
+
+func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
+	if !dt.HasField(fieldName) {
+		return 0, errors.New("Field name \"" + fieldName + "\" does not exist. ")
+	}
+
+	for i := 0; i < len(dt.fields); i++ {
+		if dt.fields[i].fieldName == fieldName {
+			if dt.fields[i].fieldType == "N" || dt.fields[i].fieldType == "F" {
+				return dt.fields[i].fieldDecimalPlaces, nil
+			}
+		}
+	}
+
+	return 0, errors.New("Type of field \"" + fieldName + "\" is not Numeric or Float.")
 }
 
 /*
