@@ -50,6 +50,9 @@ type DbfTable struct {
 
 	// encoding of dbase file
 	fileEncoding string
+	decoder      mahonia.Decoder
+	encoder      mahonia.Encoder
+
 	// keeps the dbase table in memory as byte array
 	dataStore []byte
 }
@@ -71,8 +74,7 @@ func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string)
 // Sets field value by name
 func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err error) {
 
-	e := mahonia.NewEncoder(dt.fileEncoding)
-	b := []byte(e.ConvertString(value))
+	b := []byte(dt.encoder.ConvertString(value))
 
 	fieldLength := int(dt.fields[fieldIndex].fieldLength)
 
@@ -129,9 +131,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
-	// create decoder to convert bytes to utf-8
-	d := mahonia.NewDecoder(dt.fileEncoding)
-
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 
@@ -156,8 +155,8 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 		}
 	}
 
-	s := d.ConvertString(string(temp))
-	//fmt.Printf("utf-8 value:[%#v]\n", s)
+	s := dt.decoder.ConvertString(string(temp))
+	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
 
 	value = strings.TrimSpace(s)
 
@@ -421,13 +420,13 @@ func (dt *DbfTable) getNormalizedFieldName(name string) (s string) {
 
 // Create a new dbase table from scratch
 func New(encoding string) (table *DbfTable) {
-	// create a decoder to decode file correctly
-	//d := mahonia.NewDecoder(encoding)
 
 	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
 	dt.fileEncoding = encoding
+	dt.encoder = mahonia.NewEncoder(encoding)
+	dt.decoder = mahonia.NewDecoder(encoding)
 
 	// set whether or not this table has been created from scratch
 	dt.createdFromScratch = true

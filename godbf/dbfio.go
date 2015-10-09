@@ -8,9 +8,6 @@ import (
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
-	// create a decoder to decode file correctly
-	d := mahonia.NewDecoder(fileEncoding)
-
 	s, err := readFile(fileName)
 
 	if err != nil {
@@ -21,6 +18,8 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err err
 	dt := new(DbfTable)
 
 	dt.fileEncoding = fileEncoding
+	dt.encoder = mahonia.NewEncoder(fileEncoding)
+	dt.decoder = mahonia.NewDecoder(fileEncoding)
 
 	// read dbase table header information
 	dt.fileSignature = s[0]
@@ -41,7 +40,7 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err err
 	for i := 0; i < int(dt.numberOfFields); i++ {
 		offset := (i * 32) + 32
 
-		fieldName := strings.Trim(d.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
+		fieldName := strings.Trim(dt.encoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
 
 		var err error
