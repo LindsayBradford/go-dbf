@@ -217,7 +217,7 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	dt.dataStore[7] = s[3]
 	//fmt.Printf("Number of rows after:%d\n", dt.numberOfRecords)
 
-	return
+	return newRecordNumber
 }
 
 func (dt *DbfTable) AddTextField(fieldName string, length uint8) (err error) {
