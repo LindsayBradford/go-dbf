@@ -250,6 +250,17 @@ func (dt *DbfTable) Fields() []DbfField {
 	return dt.fields
 }
 
+// FieldNames return slice of DbfField names
+func (dt *DbfTable) FieldNames() []string {
+	names := make([]string,0)
+	
+	for _, field := range dt.Fields() {
+		names = append(names, field.fieldName)
+	}
+	
+	return names
+}
+
 func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8, decimalPlaces uint8) (err error) {
 
 	if dt.dataEntryStarted {
