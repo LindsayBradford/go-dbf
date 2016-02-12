@@ -1,10 +1,11 @@
 package godbf
 
 import (
-	"code.google.com/p/mahonia"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/axgle/mahonia"
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
