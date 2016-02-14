@@ -1,11 +1,12 @@
 package godbf
 
 import (
-	"code.google.com/p/mahonia"
 	"errors"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/axgle/mahonia"
 )
 
 type DbfField struct {
@@ -252,12 +253,12 @@ func (dt *DbfTable) Fields() []DbfField {
 
 // FieldNames return slice of DbfField names
 func (dt *DbfTable) FieldNames() []string {
-	names := make([]string,0)
-	
+	names := make([]string, 0)
+
 	for _, field := range dt.Fields() {
 		names = append(names, field.fieldName)
 	}
-	
+
 	return names
 }
 
