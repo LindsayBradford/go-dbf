@@ -130,6 +130,14 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 	//fmt.Printf("string to byte:%#v\n", b)
 }
 
+//return "true" if row is marked as deleted
+func (dt *DbfTable) RowIsDeleted(row int) bool {
+	offset := int(dt.numberOfBytesInHeader)
+	lengthOfRecord := int(dt.lengthOfEachRecord)
+	offset = offset + (row * lengthOfRecord)
+	return (dt.dataStore[offset:(offset+1)][0] == 0x2A)
+}
+
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
 	offset := int(dt.numberOfBytesInHeader)
