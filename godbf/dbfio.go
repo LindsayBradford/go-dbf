@@ -15,6 +15,14 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err err
 		return nil, err
 	}
 
+	return createDbfTable(s, fileEncoding)
+}
+
+func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err error) {
+	return createDbfTable(data, fileEncoding)
+}
+
+func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) {
 	// Create and pupulate DbaseTable struct
 	dt := new(DbfTable)
 
