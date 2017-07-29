@@ -29,5 +29,9 @@ There's no real documentation as yet. Here is a very simple snippet of example '
   }
 ```
 
-##Licence: 
+## Licence: 
   This library is made available as-is under the [Apache Licence 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+  
+## Projects using godbf
+
+### [dbfcsv](https://github.com/lancecarlson/dbfcsv) - A command line utility for dbf/csv conversion
