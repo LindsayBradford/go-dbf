@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/axgle/mahonia"
+	"os"
 )
 
 type DbfField struct {
@@ -55,7 +56,31 @@ type DbfTable struct {
 	encoder      mahonia.Encoder
 
 	// keeps the dbase table in memory as byte array
+	useMemory bool
+	dataFile  *os.File
 	dataStore []byte
+}
+
+func (s *DbfTable) readAt(b []byte, off int64) (n int, err error) {
+	err = nil
+	if s.useMemory {
+		n = len(b)
+		b = s.dataStore[off:n]
+	} else {
+		return s.dataFile.ReadAt(b, off)
+	}
+	return
+}
+
+func (s *DbfTable) WriteAt(b []byte, off int64) (n int, err error) {
+	err = nil
+	if s.useMemory {
+		n = len(b)
+		s.dataStore = appendSlice(s.dataStore, b)
+	} else {
+		return s.dataFile.WriteAt(b, off)
+	}
+	return
 }
 
 // Sets field value by index
@@ -135,10 +160,10 @@ func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return (dt.dataStore[offset:(offset+1)][0] == 0x2A)
+	return (dt.dataStore[offset:(offset + 1)][0] == 0x2A)
 }
 
-func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
+func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string, err error) {
 
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
@@ -155,7 +180,14 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 		}
 	}
 
-	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
+	beginPos := offset + recordOffset
+	endPos := (offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength)
+
+	temp := make([]byte, endPos-beginPos)
+
+	if _, e := dt.readAt(temp, int64(beginPos)); e != nil {
+		return ``, e
+	}
 
 	for i := 0; i < len(temp); i++ {
 		if temp[i] == 0x00 {
@@ -163,11 +195,15 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 			break
 		}
 	}
+	s := ``
+	if dt.fields[fieldIndex].fieldType != `I` {
+		s = dt.decoder.ConvertString(string(temp))
+		value = strings.TrimSpace(s)
+	} else {
+		s = string(temp)
+	}
 
-	s := dt.decoder.ConvertString(string(temp))
 	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
-
-	value = strings.TrimSpace(s)
 
 	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
@@ -201,7 +237,7 @@ func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, e
 		return
 	}
 	//fmt.Printf("fieldIndex:%v\n", fieldIndex)
-	return dt.FieldValue(row, fieldIndex), err
+	return dt.FieldValue(row, fieldIndex)
 }
 
 func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
@@ -247,6 +283,10 @@ func (dt *DbfTable) AddNumberField(fieldName string, length uint8, decimalPlaces
 
 func (dt *DbfTable) AddFloatField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
 	return dt.addField(fieldName, 'F', length, decimalPlaces)
+}
+
+func (dt *DbfTable) AddImageField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, 'I', length, decimalPlaces)
 }
 
 // NumberOfRecords return number of rows in dbase table
@@ -369,15 +409,18 @@ func (dt *DbfTable) updateHeader() {
 	return
 }
 
-func (dt *DbfTable) GetRowAsSlice(row int) []string {
+func (dt *DbfTable) GetRowAsSlice(row int) (s []string, err error) {
 
-	s := make([]string, len(dt.Fields()))
+	s = make([]string, len(dt.Fields()))
 
 	for i := 0; i < len(dt.Fields()); i++ {
-		s[i] = dt.FieldValue(row, i)
+		s[i], err = dt.FieldValue(row, i)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return s
+	return s, err
 }
 
 func (dt *DbfTable) HasField(fieldName string) bool {

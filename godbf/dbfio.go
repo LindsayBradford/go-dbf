@@ -9,26 +9,36 @@ import (
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
-	s, err := readFile(fileName)
+	s, err := os.Open(fileName)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return createDbfTable(s, fileEncoding)
+	return createDbfTable(nil, s, fileEncoding)
 }
 
 func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err error) {
-	return createDbfTable(data, fileEncoding)
+	return createDbfTable(data, nil, fileEncoding)
 }
 
-func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) {
+func createDbfTable(data []byte, file *os.File, fileEncoding string) (table *DbfTable, err error) {
 	// Create and pupulate DbaseTable struct
 	dt := new(DbfTable)
 
 	dt.fileEncoding = fileEncoding
+	dt.dataFile = file
+	dt.dataStore = data
+	dt.useMemory = file == nil
+
 	dt.encoder = mahonia.NewEncoder(fileEncoding)
 	dt.decoder = mahonia.NewDecoder(fileEncoding)
+
+	s := make([]byte, 12)
+
+	if _, err := dt.readAt(s, 0); err != nil {
+		return nil, err
+	}
 
 	// read dbase table header information
 	dt.fileSignature = s[0]
@@ -45,12 +55,20 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	// Number of fields in dbase table
 	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
 
+	s = make([]byte, int(dt.numberOfFields)*32+32)
+
+	if _, err := dt.readAt(s, 0); err != nil {
+		return nil, err
+	}
+
 	// populate dbf fields
 	for i := 0; i < int(dt.numberOfFields); i++ {
 		offset := (i * 32) + 32
 
 		fieldName := strings.Trim(dt.encoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
+
+		println(fieldName, i)
 
 		var err error
 
@@ -65,6 +83,11 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 			err = dt.AddBooleanField(fieldName)
 		case 'D':
 			err = dt.AddDateField(fieldName)
+		case 'I':
+			err = dt.AddImageField(fieldName, s[offset+16], s[offset+17])
+		default:
+			println(`Found incorrect code field: `, string(s[offset+11]), `use as Text field: `, fieldName)
+			err = dt.AddTextField(fieldName, s[offset+16])
 		}
 
 		// Check return value for errors
@@ -87,9 +110,6 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.
 	dt.dataEntryStarted = true
-
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
 
 	return dt, nil
 }
@@ -120,5 +140,13 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
 
+	return nil
+}
+
+func (dt *DbfTable) Close() error {
+	if !dt.useMemory {
+		return dt.dataFile.Close()
+	}
+	dt.dataStore = make([]byte, 0)
 	return nil
 }
