@@ -68,8 +68,6 @@ func createDbfTable(data []byte, file *os.File, fileEncoding string) (table *Dbf
 		fieldName := strings.Trim(dt.encoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
 
-		println(fieldName, i)
-
 		var err error
 
 		switch s[offset+11] {
