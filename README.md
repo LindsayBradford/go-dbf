@@ -20,6 +20,14 @@ There's no real documentation as yet. Here is a very simple snippet of example '
 ```go
   dbfTable, err := godbf.NewFromFile("exampleFile.dbf", "UTF8")
 
+  if err != nil {
+    panic(err)
+  }
+  
+  defer dbfTable.Close()
+  
+  println(`Row count: `, dbfTable.NumberOfRecords())
+  
   exampleList := make(ExampleList, dbfTable.NumberOfRecords())
 
   for i := 0; i < dbfTable.NumberOfRecords(); i++ {
@@ -27,6 +35,7 @@ There's no real documentation as yet. Here is a very simple snippet of example '
 
     exampleList[i].someColumnId, err = dbfTable.FieldValueByName(i, "SOME_COLUMN_ID")
   }
+ 
 ```
 
 ## Licence: 
