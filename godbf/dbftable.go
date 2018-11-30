@@ -135,7 +135,7 @@ func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return (dt.dataStore[offset:(offset+1)][0] == 0x2A)
+	return (dt.dataStore[offset:(offset + 1)][0] == 0x2A)
 }
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
@@ -453,9 +453,9 @@ func New(encoding string) (table *DbfTable) {
 
 	// read dbase table header information
 	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() % 100)
+	dt.updateYear = byte(time.Now().Year() - 1900)
 	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().YearDay())
+	dt.updateDay = byte(time.Now().Day())
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
