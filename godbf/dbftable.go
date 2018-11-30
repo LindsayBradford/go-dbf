@@ -501,9 +501,9 @@ func New(encoding string) (table *DbfTable) {
 	// Why? To make sure at least if you know the real encoding you can process text accordingly.
 
 	if code, ok := encodingTable[lookup[encoding]]; ok {
-		dt.dataStore[28] = code
+		dt.dataStore[29] = code
 	} else {
-		dt.dataStore[28] = 0x57 // ANSI
+		dt.dataStore[29] = 0x57 // ANSI
 	}
 
 	return dt
