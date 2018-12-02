@@ -175,7 +175,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	return
 }
 
-// Float64FieldValueByName retuns the value of a field given row number and fieldName provided as a float64
+// Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64
 func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
 
 	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
@@ -183,7 +183,7 @@ func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value fl
 	return strconv.ParseFloat(fieldValueAsString, 64)
 }
 
-// Int64FieldValueByName retuns the value of a field given row number and fieldName provided as an int64
+// Int64FieldValueByName returns the value of a field given row number and fieldName provided as an int64
 func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
 
 	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
@@ -191,7 +191,7 @@ func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int6
 	return strconv.ParseInt(fieldValueAsString, 0, 64)
 }
 
-// FieldValueByName retuns the value of a field given row number and fieldName provided
+// FieldValueByName returns the value of a field given row number and fieldName provided
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
 
 	fieldIndex, ok := dt.fieldMap[fieldName]

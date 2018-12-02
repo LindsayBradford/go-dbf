@@ -1,6 +1,8 @@
 package godbf
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -214,4 +216,181 @@ func TestDbfTable_DecimalPlacesInField_InvalidField(t *testing.T) {
 
 	g.Expect(numberError).ToNot(BeNil())
 	t.Log(numberError)
+}
+
+func TestDbfTable_GetRowAsSlice_InitiallyEmptyStrings(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	booldFieldName := "boolField"
+	tableUnderTest.AddBooleanField(booldFieldName)
+
+	textFieldName := "textField"
+	tableUnderTest.AddBooleanField(textFieldName)
+
+	dateFieldName := "dateField"
+	tableUnderTest.AddBooleanField(dateFieldName)
+
+	numFieldName := "numField"
+	tableUnderTest.AddBooleanField(numFieldName)
+
+	floatFieldName := "floatField"
+	tableUnderTest.AddBooleanField(floatFieldName)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	fieldValues := tableUnderTest.GetRowAsSlice(recordIndex)
+
+	for _, value := range fieldValues {
+		g.Expect(value).To(Equal(""))
+	}
+}
+
+func TestDbfTable_GetRowAsSlice(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	boolFieldName := "boolField"
+	expectedBoolFieldValue := "T"
+	tableUnderTest.AddBooleanField(boolFieldName)
+
+	textFieldName := "textField"
+	expectedTextFieldValue := "some text"
+	tableUnderTest.AddTextField(textFieldName, 10)
+
+	dateFieldName := "dateField"
+	expectedDateFieldValue := "20181201"
+	tableUnderTest.AddDateField(dateFieldName)
+
+	numFieldName := "numField"
+	expectedNumFieldValue := "640"
+	tableUnderTest.AddNumberField(numFieldName, 3, 0)
+
+	floatFieldName := "floatField"
+	expectedFloatFieldValue := "640.42"
+	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, boolFieldName, expectedBoolFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, expectedTextFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, dateFieldName, expectedDateFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, numFieldName, expectedNumFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
+
+	fieldValues := tableUnderTest.GetRowAsSlice(recordIndex)
+
+	g.Expect(fieldValues[0]).To(Equal(expectedBoolFieldValue))
+	g.Expect(fieldValues[1]).To(Equal(expectedTextFieldValue))
+	g.Expect(fieldValues[2]).To(Equal(expectedDateFieldValue))
+	g.Expect(fieldValues[3]).To(Equal(expectedNumFieldValue))
+	g.Expect(fieldValues[4]).To(Equal(expectedFloatFieldValue))
+}
+
+func TestDbfTable_FieldValueByName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	boolFieldName := "boolField"
+	expectedBoolFieldValue := "T"
+	tableUnderTest.AddBooleanField(boolFieldName)
+
+	textFieldName := "textField"
+	expectedTextFieldValue := "some text"
+	tableUnderTest.AddTextField(textFieldName, 10)
+
+	dateFieldName := "dateField"
+	expectedDateFieldValue := "20181201"
+	tableUnderTest.AddDateField(dateFieldName)
+
+	numFieldName := "numField"
+	expectedNumFieldValue := "640"
+	tableUnderTest.AddNumberField(numFieldName, 3, 0)
+
+	floatFieldName := "floatField"
+	expectedFloatFieldValue := "640.42"
+	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, boolFieldName, expectedBoolFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, expectedTextFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, dateFieldName, expectedDateFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, numFieldName, expectedNumFieldValue)
+	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
+
+	g.Expect(tableUnderTest.FieldValueByName(recordIndex, boolFieldName)).To(Equal(expectedBoolFieldValue))
+	g.Expect(tableUnderTest.FieldValueByName(recordIndex, textFieldName)).To(Equal(expectedTextFieldValue))
+	g.Expect(tableUnderTest.FieldValueByName(recordIndex, dateFieldName)).To(Equal(expectedDateFieldValue))
+	g.Expect(tableUnderTest.FieldValueByName(recordIndex, numFieldName)).To(Equal(expectedNumFieldValue))
+	g.Expect(tableUnderTest.FieldValueByName(recordIndex, floatFieldName)).To(Equal(expectedFloatFieldValue))
+}
+
+func TestDbfTable_FieldValueByName_NonExistentField(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	_, error := tableUnderTest.FieldValueByName(recordIndex, "missingField")
+
+	g.Expect(error).ToNot(BeNil())
+	t.Log(error)
+}
+
+func TestDbfTable_SetFieldValueByName_NonExistentField(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	error := tableUnderTest.SetFieldValueByName(recordIndex, "missingField", "someText")
+
+	g.Expect(error).ToNot(BeNil())
+	t.Log(error)
+}
+
+func TestDbfTable_Float64FieldValueByName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	floatFieldName := "floatField"
+	expectedFloatFieldValue := "640.42"
+	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
+
+	actualFloatFieldValue, error := tableUnderTest.Float64FieldValueByName(recordIndex, floatFieldName)
+
+	g.Expect(error).To(BeNil())
+	expectedValueAsFloat, _ := strconv.ParseFloat(expectedFloatFieldValue, 64)
+	g.Expect(actualFloatFieldValue).To(BeNumerically("==", expectedValueAsFloat))
+}
+
+func TestDbfTable_Int64FieldValueByName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	intFieldName := "intField"
+	expectedIntValue := 640
+	expectedIntFieldValue := fmt.Sprintf("%d", expectedIntValue)
+	tableUnderTest.AddNumberField(intFieldName, 6, 2)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, intFieldName, expectedIntFieldValue)
+
+	actualIntFieldValue, error := tableUnderTest.Int64FieldValueByName(recordIndex, intFieldName)
+
+	g.Expect(error).To(BeNil())
+	g.Expect(actualIntFieldValue).To(BeNumerically("==", expectedIntValue))
 }
