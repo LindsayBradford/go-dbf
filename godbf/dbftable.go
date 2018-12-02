@@ -453,9 +453,9 @@ func New(encoding string) (table *DbfTable) {
 
 	// read dbase table header information
 	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() % 100)
+	dt.updateYear = byte(time.Now().Year() - 1900)
 	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().YearDay())
+	dt.updateDay = byte(time.Now().Day())
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
@@ -501,9 +501,9 @@ func New(encoding string) (table *DbfTable) {
 	// Why? To make sure at least if you know the real encoding you can process text accordingly.
 
 	if code, ok := encodingTable[lookup[encoding]]; ok {
-		dt.dataStore[28] = code
+		dt.dataStore[29] = code
 	} else {
-		dt.dataStore[28] = 0x57 // ANSI
+		dt.dataStore[29] = 0x57 // ANSI
 	}
 
 	return dt
