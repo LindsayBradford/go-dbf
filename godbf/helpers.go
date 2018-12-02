@@ -34,10 +34,12 @@ func readFile(filename string) ([]byte, error) {
 		return nil, err
 	}
 	defer f.Close()
+
 	d, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
+
 	buf := make([]byte, d.Size())
 	_, err = io.ReadFull(f, buf)
 	if err != nil {

@@ -135,7 +135,7 @@ func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return (dt.dataStore[offset:(offset+1)][0] == 0x2A)
+	return dt.dataStore[offset:(offset + 1)][0] == 0x2A
 }
 
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
