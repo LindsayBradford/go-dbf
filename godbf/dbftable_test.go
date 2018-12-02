@@ -2,13 +2,14 @@ package godbf
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	. "github.com/onsi/gomega"
 )
 
 const testEncoding = "UTF-8"
+
+// For reference: https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
 
 func TestDbfTable_New(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -355,26 +356,6 @@ func TestDbfTable_SetFieldValueByName_NonExistentField(t *testing.T) {
 	t.Log(error)
 }
 
-func TestDbfTable_Float64FieldValueByName(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	tableUnderTest := New(testEncoding)
-
-	floatFieldName := "floatField"
-	expectedFloatFieldValue := "640.42"
-	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
-
-	recordIndex := tableUnderTest.AddNewRecord()
-
-	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
-
-	actualFloatFieldValue, error := tableUnderTest.Float64FieldValueByName(recordIndex, floatFieldName)
-
-	g.Expect(error).To(BeNil())
-	expectedValueAsFloat, _ := strconv.ParseFloat(expectedFloatFieldValue, 64)
-	g.Expect(actualFloatFieldValue).To(BeNumerically("==", expectedValueAsFloat))
-}
-
 func TestDbfTable_Int64FieldValueByName(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -393,4 +374,24 @@ func TestDbfTable_Int64FieldValueByName(t *testing.T) {
 
 	g.Expect(error).To(BeNil())
 	g.Expect(actualIntFieldValue).To(BeNumerically("==", expectedIntValue))
+}
+
+func TestDbfTable_Float64FieldValueByName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	floatFieldName := "floatField"
+	expectedFloatValue := 640.42
+	expectedFloatFieldValue := fmt.Sprintf("%.2f", expectedFloatValue)
+	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
+
+	recordIndex := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
+
+	actualFloatFieldValue, error := tableUnderTest.Float64FieldValueByName(recordIndex, floatFieldName)
+
+	g.Expect(error).To(BeNil())
+	g.Expect(actualFloatFieldValue).To(BeNumerically("==", expectedFloatValue))
 }
