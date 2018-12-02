@@ -23,7 +23,7 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err er
 }
 
 func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) {
-	// Create and pupulate DbaseTable struct
+	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
 	dt.fileEncoding = fileEncoding
@@ -39,7 +39,7 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
 	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
 
-	// create fieldMap to taranslate field name to index
+	// create fieldMap to translate field name to index
 	dt.fieldMap = make(map[string]int)
 
 	// Number of fields in dbase table
@@ -82,7 +82,7 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("lenght of each record:%v\n", (dt.lengthOfEachRecord))
+	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))
 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.
