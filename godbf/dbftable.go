@@ -460,7 +460,7 @@ func New(encoding string) (table *DbfTable) {
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
 
-	// create fieldMap to taranslate field name to index
+	// create fieldMap to translate field name to index
 	dt.fieldMap = make(map[string]int)
 
 	// Number of fields in dbase table
@@ -472,7 +472,7 @@ func New(encoding string) (table *DbfTable) {
 	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("lenght of each record:%v\n", (dt.lengthOfEachRecord))
+	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))
 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.
