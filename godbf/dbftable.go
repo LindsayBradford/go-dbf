@@ -9,6 +9,11 @@ import (
 	"github.com/axgle/mahonia"
 )
 
+const (
+	null  = 0x00
+	blank = 0x20
+)
+
 type DbfField struct {
 	fieldName          string
 	fieldType          string
@@ -157,12 +162,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
 	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
 
-	for i := 0; i < len(temp); i++ {
-		if temp[i] == 0x00 {
-			temp = temp[0:i]
-			break
-		}
-	}
+	enforceBlankPadding(temp)
 
 	s := dt.decoder.ConvertString(string(temp))
 	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
@@ -173,6 +173,16 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
 	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
 	return
+}
+
+// Some Dbf encoders pad with null chars instead of blanks, this forces blanks as per
+// https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+func enforceBlankPadding(temp []byte) {
+	for i := 0; i < len(temp); i++ {
+		if temp[i] == null {
+			temp[i] = blank
+		}
+	}
 }
 
 // Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64

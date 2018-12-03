@@ -384,7 +384,7 @@ func TestDbfTable_Float64FieldValueByName(t *testing.T) {
 	floatFieldName := "floatField"
 	expectedFloatValue := 640.42
 	expectedFloatFieldValue := fmt.Sprintf("%.2f", expectedFloatValue)
-	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
+	tableUnderTest.AddFloatField(floatFieldName, 10, 2)
 
 	recordIndex := tableUnderTest.AddNewRecord()
 
