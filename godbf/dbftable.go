@@ -14,14 +14,6 @@ const (
 	blank = 0x20
 )
 
-type DbfField struct {
-	fieldName          string
-	fieldType          string
-	fieldLength        uint8
-	fieldDecimalPlaces uint8
-	fieldStore         [32]byte
-}
-
 type DbfTable struct {
 	// dbase file header information
 	fileSignature         uint8 // Valid dBASE III PLUS table file (03h without a memo .DBT file; 83h with a memo)
@@ -65,16 +57,10 @@ type DbfTable struct {
 
 // Sets field value by index
 func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err error) {
-
-	fieldIndex, ok := dt.fieldMap[fieldName]
-
-	if !ok {
-		return errors.New("Field name \"" + fieldName + "\" does not exist")
+	if fieldIndex, found := dt.fieldMap[fieldName]; found {
+		return dt.SetFieldValue(row, fieldIndex, value)
 	}
-
-	// set field value and return
-	dt.SetFieldValue(row, fieldIndex, value)
-	return
+	return errors.New("Field name \"" + fieldName + "\" does not exist")
 }
 
 // Sets field value by name
@@ -105,18 +91,15 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 		}
 	}
 
-	// first fill the field with space values
-	for i := 0; i < fieldLength; i++ {
-		dt.dataStore[offset+recordOffset+i] = 0x20
-	}
+	dt.fillFieldWithBlanks(fieldLength, offset, recordOffset)
 
 	// write new value
 	switch dt.fields[fieldIndex].fieldType {
-	case "C", "L", "D":
+	case Character, Logical, Date:
 		for i := 0; i < len(b) && i < fieldLength; i++ {
 			dt.dataStore[offset+recordOffset+i] = b[i]
 		}
-	case "N", "F":
+	case Float, Numeric:
 		for i := 0; i < fieldLength; i++ {
 			// fmt.Printf("i:%v\n", i)
 			if i < len(b) {
@@ -133,6 +116,12 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 	//fmt.Printf("field index:%#v\n", fieldIndex)
 	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].fieldLength)
 	//fmt.Printf("string to byte:%#v\n", b)
+}
+
+func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffset int) {
+	for i := 0; i < fieldLength; i++ {
+		dt.dataStore[offset+recordOffset+i] = blank
+	}
 }
 
 //return "true" if row is marked as deleted
@@ -187,31 +176,23 @@ func enforceBlankPadding(temp []byte) {
 
 // Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64
 func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
-
-	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
-
-	return strconv.ParseFloat(fieldValueAsString, 64)
+	valueAsString, err := dt.FieldValueByName(row, fieldName)
+	return strconv.ParseFloat(valueAsString, 64)
 }
 
 // Int64FieldValueByName returns the value of a field given row number and fieldName provided as an int64
 func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
-
-	fieldValueAsString, err := dt.FieldValueByName(row, fieldName)
-
-	return strconv.ParseInt(fieldValueAsString, 0, 64)
+	valueAsString, err := dt.FieldValueByName(row, fieldName)
+	return strconv.ParseInt(valueAsString, 0, 64)
 }
 
 // FieldValueByName returns the value of a field given row number and fieldName provided
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
-
-	fieldIndex, ok := dt.fieldMap[fieldName]
-
-	if !ok {
-		err = errors.New("Field name \"" + fieldName + "\" does not exist")
-		return
+	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
+		return dt.FieldValue(row, fieldIndex), err
 	}
-	//fmt.Printf("fieldIndex:%v\n", fieldIndex)
-	return dt.FieldValue(row, fieldIndex), err
+	err = errors.New("Field name \"" + fieldName + "\" does not exist")
+	return
 }
 
 func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
@@ -239,24 +220,24 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	return newRecordNumber
 }
 
-func (dt *DbfTable) AddTextField(fieldName string, length uint8) (err error) {
-	return dt.addField(fieldName, 'C', length, 0)
-}
-
 func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
-	return dt.addField(fieldName, 'L', 1, 0)
+	return dt.addField(fieldName, Logical, Logical.fieldLength(), Logical.decimalPlaces())
 }
 
 func (dt *DbfTable) AddDateField(fieldName string) (err error) {
-	return dt.addField(fieldName, 'D', 8, 0)
+	return dt.addField(fieldName, Date, Date.fieldLength(), Date.decimalPlaces())
 }
 
-func (dt *DbfTable) AddNumberField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
-	return dt.addField(fieldName, 'N', length, decimalPlaces)
+func (dt *DbfTable) AddTextField(fieldName string, length byte) (err error) {
+	return dt.addField(fieldName, Character, length, Character.decimalPlaces())
 }
 
-func (dt *DbfTable) AddFloatField(fieldName string, length uint8, decimalPlaces uint8) (err error) {
-	return dt.addField(fieldName, 'F', length, decimalPlaces)
+func (dt *DbfTable) AddNumberField(fieldName string, length byte, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, Numeric, length, decimalPlaces)
+}
+
+func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, Float, length, decimalPlaces)
 }
 
 // NumberOfRecords return number of rows in dbase table
@@ -280,7 +261,7 @@ func (dt *DbfTable) FieldNames() []string {
 	return names
 }
 
-func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8, decimalPlaces uint8) (err error) {
+func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length byte, decimalPlaces uint8) (err error) {
 
 	if dt.dataEntryStarted {
 		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
@@ -294,7 +275,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8, dec
 
 	df := new(DbfField)
 	df.fieldName = normalizedFieldName
-	df.fieldType = string(fieldType)
+	df.fieldType = fieldType
 	df.fieldLength = length
 	df.fieldDecimalPlaces = decimalPlaces
 
@@ -317,10 +298,10 @@ func (dt *DbfTable) addField(fieldName string, fieldType byte, length uint8, dec
 	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
 	// F (Floating Point)   - . 0 1 2 3 4 5 6 7 8 9
 	// L (Logical)    ? Y y N n T t F f (? when not initialized).
-	df.fieldStore[11] = fieldType
+	df.fieldStore[11] = fieldType.Byte()
 
 	// length of field
-	df.fieldStore[16] = length
+	df.fieldStore[16] = byte(length)
 
 	// number of decimal places
 	// Applicable only to number/float
@@ -407,10 +388,8 @@ func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
 	}
 
 	for i := 0; i < len(dt.fields); i++ {
-		if dt.fields[i].fieldName == fieldName {
-			if dt.fields[i].fieldType == "N" || dt.fields[i].fieldType == "F" {
-				return dt.fields[i].fieldDecimalPlaces, nil
-			}
+		if dt.fields[i].fieldName == fieldName && dt.fields[i].usesDecimalPlaces() {
+			return dt.fields[i].fieldDecimalPlaces, nil
 		}
 	}
 

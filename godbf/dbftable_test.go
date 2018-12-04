@@ -33,7 +33,7 @@ func TestDbfTable_AddBooleanField(t *testing.T) {
 
 	addedField := tableUnderTest.Fields()[0]
 	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
-	g.Expect(addedField.fieldType).To(Equal("L"))
+	g.Expect(addedField.fieldType).To(Equal(Logical))
 }
 
 func TestDbfTable_AddBooleanField_TooLongGetsTruncated(t *testing.T) {
@@ -96,7 +96,7 @@ func TestDbfTable_AddDateField(t *testing.T) {
 
 	addedField := tableUnderTest.Fields()[0]
 	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
-	g.Expect(addedField.fieldType).To(Equal("D"))
+	g.Expect(addedField.fieldType).To(Equal(Date))
 }
 
 func TestDbfTable_AddTextField(t *testing.T) {
@@ -113,11 +113,11 @@ func TestDbfTable_AddTextField(t *testing.T) {
 
 	addedField := tableUnderTest.Fields()[0]
 	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
-	g.Expect(addedField.fieldType).To(Equal("C"))
+	g.Expect(addedField.fieldType).To(Equal(Character))
 	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
 }
 
-func TestDbfTable_AddNumberField(t *testing.T) {
+func TestDbfTable_AddNumericField(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest := New(testEncoding)
@@ -132,7 +132,7 @@ func TestDbfTable_AddNumberField(t *testing.T) {
 
 	addedField := tableUnderTest.Fields()[0]
 	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
-	g.Expect(addedField.fieldType).To(Equal("N"))
+	g.Expect(addedField.fieldType).To(Equal(Numeric))
 	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
 	g.Expect(addedField.fieldDecimalPlaces).To(Equal(expectedFDecimalPlaces))
 }
@@ -152,7 +152,7 @@ func TestDbfTable_AddFloatField(t *testing.T) {
 
 	addedField := tableUnderTest.Fields()[0]
 	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
-	g.Expect(addedField.fieldType).To(Equal("F"))
+	g.Expect(addedField.fieldType).To(Equal(Float))
 	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
 	g.Expect(addedField.fieldDecimalPlaces).To(Equal(expectedFDecimalPlaces))
 }
@@ -337,10 +337,10 @@ func TestDbfTable_FieldValueByName_NonExistentField(t *testing.T) {
 
 	recordIndex := tableUnderTest.AddNewRecord()
 
-	_, error := tableUnderTest.FieldValueByName(recordIndex, "missingField")
+	_, valueError := tableUnderTest.FieldValueByName(recordIndex, "missingField")
 
-	g.Expect(error).ToNot(BeNil())
-	t.Log(error)
+	g.Expect(valueError).ToNot(BeNil())
+	t.Log(valueError)
 }
 
 func TestDbfTable_SetFieldValueByName_NonExistentField(t *testing.T) {
@@ -350,10 +350,10 @@ func TestDbfTable_SetFieldValueByName_NonExistentField(t *testing.T) {
 
 	recordIndex := tableUnderTest.AddNewRecord()
 
-	error := tableUnderTest.SetFieldValueByName(recordIndex, "missingField", "someText")
+	setError := tableUnderTest.SetFieldValueByName(recordIndex, "missingField", "someText")
 
-	g.Expect(error).ToNot(BeNil())
-	t.Log(error)
+	g.Expect(setError).ToNot(BeNil())
+	t.Log(setError)
 }
 
 func TestDbfTable_Int64FieldValueByName(t *testing.T) {
@@ -370,9 +370,9 @@ func TestDbfTable_Int64FieldValueByName(t *testing.T) {
 
 	tableUnderTest.SetFieldValueByName(recordIndex, intFieldName, expectedIntFieldValue)
 
-	actualIntFieldValue, error := tableUnderTest.Int64FieldValueByName(recordIndex, intFieldName)
+	actualIntFieldValue, valueError := tableUnderTest.Int64FieldValueByName(recordIndex, intFieldName)
 
-	g.Expect(error).To(BeNil())
+	g.Expect(valueError).To(BeNil())
 	g.Expect(actualIntFieldValue).To(BeNumerically("==", expectedIntValue))
 }
 
@@ -390,8 +390,8 @@ func TestDbfTable_Float64FieldValueByName(t *testing.T) {
 
 	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
 
-	actualFloatFieldValue, error := tableUnderTest.Float64FieldValueByName(recordIndex, floatFieldName)
+	actualFloatFieldValue, valueError := tableUnderTest.Float64FieldValueByName(recordIndex, floatFieldName)
 
-	g.Expect(error).To(BeNil())
+	g.Expect(valueError).To(BeNil())
 	g.Expect(actualFloatFieldValue).To(BeNumerically("==", expectedFloatValue))
 }

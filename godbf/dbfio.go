@@ -9,13 +9,10 @@ import (
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
-	s, err := readFile(fileName)
-
-	if err != nil {
-		return nil, err
+	if s, err := readFile(fileName); err == nil {
+		return createDbfTable(s, fileEncoding)
 	}
-
-	return createDbfTable(s, fileEncoding)
+	return
 }
 
 func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err error) {
@@ -120,5 +117,5 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
 
-	return nil
+	return
 }

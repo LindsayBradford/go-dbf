@@ -31,24 +31,24 @@ func TestDbfTable_NewFromValidFile_FieldsCorrect(t *testing.T) {
 	g.Expect(expectedFieldNames).To(Equal(tableUnderTest.FieldNames()))
 
 	boolField := tableUnderTest.Fields()[0]
-	g.Expect(boolField.fieldType).To(Equal("L"))
+	g.Expect(boolField.fieldType).To(Equal(Logical))
 	g.Expect(boolField.fieldLength).To(BeNumerically("==", 1))
 
 	textField := tableUnderTest.Fields()[1]
-	g.Expect(textField.fieldType).To(Equal("C"))
+	g.Expect(textField.fieldType).To(Equal(Character))
 	g.Expect(textField.fieldLength).To(BeNumerically("==", 10))
 
 	dateField := tableUnderTest.Fields()[2]
-	g.Expect(dateField.fieldType).To(Equal("D"))
+	g.Expect(dateField.fieldType).To(Equal(Date))
 	g.Expect(dateField.fieldLength).To(BeNumerically("==", 8))
 
 	numField := tableUnderTest.Fields()[3]
-	g.Expect(numField.fieldType).To(Equal("N"))
+	g.Expect(numField.fieldType).To(Equal(Numeric))
 	g.Expect(numField.fieldLength).To(BeNumerically("==", 10))
 	g.Expect(numField.fieldDecimalPlaces).To(BeNumerically("==", 0))
 
 	floatField := tableUnderTest.Fields()[4]
-	g.Expect(floatField.fieldType).To(Equal("F"))
+	g.Expect(floatField.fieldType).To(Equal(Float))
 	g.Expect(floatField.fieldLength).To(BeNumerically("==", 10))
 	g.Expect(floatField.fieldDecimalPlaces).To(BeNumerically("==", 2))
 }
