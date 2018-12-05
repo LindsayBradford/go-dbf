@@ -1,5 +1,7 @@
 # go-dbf
 [![Build Status](https://travis-ci.com/LindsayBradford/go-dbf.svg?branch=master)](https://travis-ci.com/LindsayBradford/go-dbf)
+[![GoDoc](https://godoc.org/github.com/LindsayBradford/go-dbf/godbf?status.svg)](https://godoc.org/github.com/LindsayBradford/go-dbf/godbf)
+
 
 A pure Go library for reading and writing [dBase/xBase](http://en.wikipedia.org/wiki/DBase#File_formats) database files
 
