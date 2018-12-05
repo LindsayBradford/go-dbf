@@ -1,4 +1,6 @@
 # go-dbf
+[![Build Status](https://travis-ci.com/LindsayBradford/go-dbf.svg?branch=master)](https://travis-ci.com/LindsayBradford/go-dbf)
+
 A pure Go library for reading and writing [dBase/xBase](http://en.wikipedia.org/wiki/DBase#File_formats) database files
 
 This project is a part of go-shp library. [go-shp](https://github.com/jonas-p/go-shp) is a pure Go implementation of Esri [Shapefile](http://en.wikipedia.org/wiki/Shapefile) format.
