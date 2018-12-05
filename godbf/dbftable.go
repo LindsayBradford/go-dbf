@@ -55,379 +55,7 @@ type DbfTable struct {
 	dataStore []byte
 }
 
-// Sets field value by index
-func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err error) {
-	if fieldIndex, found := dt.fieldMap[fieldName]; found {
-		return dt.SetFieldValue(row, fieldIndex, value)
-	}
-	return errors.New("Field name \"" + fieldName + "\" does not exist")
-}
-
-// Sets field value by name
-func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err error) {
-
-	b := []byte(dt.encoder.ConvertString(value))
-
-	fieldLength := int(dt.fields[fieldIndex].fieldLength)
-
-	//DEBUG
-
-	//fmt.Printf("dt.numberOfBytesInHeader=%v\n\n", dt.numberOfBytesInHeader)
-	//fmt.Printf("dt.lengthOfEachRecord=%v\n\n", dt.lengthOfEachRecord)
-
-	// locate the offset of the field in DbfTable dataStore
-	offset := int(dt.numberOfBytesInHeader)
-	lengthOfRecord := int(dt.lengthOfEachRecord)
-
-	offset = offset + (row * lengthOfRecord)
-
-	recordOffset := 1
-
-	for i := 0; i < len(dt.fields); i++ {
-		if i == fieldIndex {
-			break
-		} else {
-			recordOffset += int(dt.fields[i].fieldLength)
-		}
-	}
-
-	dt.fillFieldWithBlanks(fieldLength, offset, recordOffset)
-
-	// write new value
-	switch dt.fields[fieldIndex].fieldType {
-	case Character, Logical, Date:
-		for i := 0; i < len(b) && i < fieldLength; i++ {
-			dt.dataStore[offset+recordOffset+i] = b[i]
-		}
-	case Float, Numeric:
-		for i := 0; i < fieldLength; i++ {
-			// fmt.Printf("i:%v\n", i)
-			if i < len(b) {
-				dt.dataStore[offset+recordOffset+(fieldLength-i-1)] = b[(len(b)-1)-i]
-			} else {
-				break
-			}
-		}
-	}
-
-	return
-
-	//fmt.Printf("field value:%#v\n", []byte(value))
-	//fmt.Printf("field index:%#v\n", fieldIndex)
-	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].fieldLength)
-	//fmt.Printf("string to byte:%#v\n", b)
-}
-
-func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffset int) {
-	for i := 0; i < fieldLength; i++ {
-		dt.dataStore[offset+recordOffset+i] = blank
-	}
-}
-
-//return "true" if row is marked as deleted
-func (dt *DbfTable) RowIsDeleted(row int) bool {
-	offset := int(dt.numberOfBytesInHeader)
-	lengthOfRecord := int(dt.lengthOfEachRecord)
-	offset = offset + (row * lengthOfRecord)
-	return dt.dataStore[offset:(offset + 1)][0] == 0x2A
-}
-
-func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
-
-	offset := int(dt.numberOfBytesInHeader)
-	lengthOfRecord := int(dt.lengthOfEachRecord)
-
-	offset = offset + (row * lengthOfRecord)
-
-	recordOffset := 1
-
-	for i := 0; i < len(dt.fields); i++ {
-		if i == fieldIndex {
-			break
-		} else {
-			recordOffset += int(dt.fields[i].fieldLength)
-		}
-	}
-
-	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
-
-	enforceBlankPadding(temp)
-
-	s := dt.decoder.ConvertString(string(temp))
-	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
-
-	value = strings.TrimSpace(s)
-
-	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
-	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
-	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
-	return
-}
-
-// Some Dbf encoders pad with null chars instead of blanks, this forces blanks as per
-// https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
-func enforceBlankPadding(temp []byte) {
-	for i := 0; i < len(temp); i++ {
-		if temp[i] == null {
-			temp[i] = blank
-		}
-	}
-}
-
-// Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64
-func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
-	valueAsString, err := dt.FieldValueByName(row, fieldName)
-	return strconv.ParseFloat(valueAsString, 64)
-}
-
-// Int64FieldValueByName returns the value of a field given row number and fieldName provided as an int64
-func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
-	valueAsString, err := dt.FieldValueByName(row, fieldName)
-	return strconv.ParseInt(valueAsString, 0, 64)
-}
-
-// FieldValueByName returns the value of a field given row number and fieldName provided
-func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
-	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
-		return dt.FieldValue(row, fieldIndex), err
-	}
-	err = errors.New("Field name \"" + fieldName + "\" does not exist")
-	return
-}
-
-func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
-
-	if dt.dataEntryStarted == false {
-		dt.dataEntryStarted = true
-	}
-
-	newRecord := make([]byte, dt.lengthOfEachRecord)
-	dt.dataStore = appendSlice(dt.dataStore, newRecord)
-
-	// since row numbers are "0" based first we set newRecordNumber
-	// and then increment number of records in dbase table
-	newRecordNumber = int(dt.numberOfRecords)
-
-	//fmt.Printf("Number of rows before:%d\n", dt.numberOfRecords)
-	dt.numberOfRecords++
-	s := uint32ToBytes(dt.numberOfRecords)
-	dt.dataStore[4] = s[0]
-	dt.dataStore[5] = s[1]
-	dt.dataStore[6] = s[2]
-	dt.dataStore[7] = s[3]
-	//fmt.Printf("Number of rows after:%d\n", dt.numberOfRecords)
-
-	return newRecordNumber
-}
-
-func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
-	return dt.addField(fieldName, Logical, Logical.fieldLength(), Logical.decimalPlaces())
-}
-
-func (dt *DbfTable) AddDateField(fieldName string) (err error) {
-	return dt.addField(fieldName, Date, Date.fieldLength(), Date.decimalPlaces())
-}
-
-func (dt *DbfTable) AddTextField(fieldName string, length byte) (err error) {
-	return dt.addField(fieldName, Character, length, Character.decimalPlaces())
-}
-
-func (dt *DbfTable) AddNumberField(fieldName string, length byte, decimalPlaces uint8) (err error) {
-	return dt.addField(fieldName, Numeric, length, decimalPlaces)
-}
-
-func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces uint8) (err error) {
-	return dt.addField(fieldName, Float, length, decimalPlaces)
-}
-
-// NumberOfRecords return number of rows in dbase table
-func (dt *DbfTable) NumberOfRecords() int {
-	return int(dt.numberOfRecords)
-}
-
-// Fields return slice of DbfField
-func (dt *DbfTable) Fields() []DbfField {
-	return dt.fields
-}
-
-// FieldNames return slice of DbfField names
-func (dt *DbfTable) FieldNames() []string {
-	names := make([]string, 0)
-
-	for _, field := range dt.Fields() {
-		names = append(names, field.fieldName)
-	}
-
-	return names
-}
-
-func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length byte, decimalPlaces uint8) (err error) {
-
-	if dt.dataEntryStarted {
-		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
-	}
-
-	normalizedFieldName := dt.getNormalizedFieldName(fieldName)
-
-	if dt.HasField(normalizedFieldName) {
-		return errors.New("Field name \"" + normalizedFieldName + "\" already exists!")
-	}
-
-	df := new(DbfField)
-	df.fieldName = normalizedFieldName
-	df.fieldType = fieldType
-	df.fieldLength = length
-	df.fieldDecimalPlaces = decimalPlaces
-
-	slice := dt.convertToByteSlice(normalizedFieldName, 10)
-
-	//fmt.Printf("len slice:%v\n", len(slice))
-
-	// Field name in ASCII (max 10 chracters)
-	for i := 0; i < len(slice); i++ {
-		df.fieldStore[i] = slice[i]
-		//fmt.Printf("i:%s\n", string(slice[i]))
-	}
-
-	// Field names are terminated by 00h
-	df.fieldStore[10] = 0x00
-
-	// Set field's data type
-	// C (Character)  All OEM code page characters.
-	// D (Date)     Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
-	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
-	// F (Floating Point)   - . 0 1 2 3 4 5 6 7 8 9
-	// L (Logical)    ? Y y N n T t F f (? when not initialized).
-	df.fieldStore[11] = fieldType.Byte()
-
-	// length of field
-	df.fieldStore[16] = byte(length)
-
-	// number of decimal places
-	// Applicable only to number/float
-	df.fieldStore[17] = df.fieldDecimalPlaces
-
-	//fmt.Printf("addField | append:%v\n", df)
-
-	dt.fields = append(dt.fields, *df)
-
-	// if createdFromScratch we need to update dbase header to reflect the changes we have made
-	if dt.createdFromScratch {
-		dt.updateHeader()
-	}
-
-	return
-}
-
-// updateHeader updates the dbase file header after a field added
-func (dt *DbfTable) updateHeader() {
-	// first create a slice from initial 32 bytes of datastore as the foundation of the new slice
-	// later we will set this slice to dt.dataStore to create the new header slice
-	slice := dt.dataStore[0:32]
-
-	// set dbase file signature
-	slice[0] = 0x03
-
-	var lengthOfEachRecord uint16 = 0
-
-	for i := range dt.Fields() {
-		lengthOfEachRecord += uint16(dt.Fields()[i].fieldLength)
-		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
-
-		// don't forget to update fieldMap. We need it to find the index of a field name
-		dt.fieldMap[dt.Fields()[i].fieldName] = i
-	}
-
-	// end of file header terminator (0Dh)
-	slice = appendSlice(slice, []byte{0x0D})
-
-	// now reset dt.dataStore slice with the updated one
-	dt.dataStore = slice
-
-	// update the number of bytes in dbase file header
-	dt.numberOfBytesInHeader = uint16(len(slice))
-	s := uint32ToBytes(uint32(dt.numberOfBytesInHeader))
-	dt.dataStore[8] = s[0]
-	dt.dataStore[9] = s[1]
-
-	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // dont forget to add "1" for deletion marker which is 20h
-
-	// update the lenght of each record
-	s = uint32ToBytes(uint32(dt.lengthOfEachRecord))
-	dt.dataStore[10] = s[0]
-	dt.dataStore[11] = s[1]
-
-	return
-}
-
-func (dt *DbfTable) GetRowAsSlice(row int) []string {
-
-	s := make([]string, len(dt.Fields()))
-
-	for i := 0; i < len(dt.Fields()); i++ {
-		s[i] = dt.FieldValue(row, i)
-	}
-
-	return s
-}
-
-func (dt *DbfTable) HasField(fieldName string) bool {
-
-	for i := 0; i < len(dt.fields); i++ {
-		if dt.fields[i].fieldName == fieldName {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
-	if !dt.HasField(fieldName) {
-		return 0, errors.New("Field name \"" + fieldName + "\" does not exist. ")
-	}
-
-	for i := 0; i < len(dt.fields); i++ {
-		if dt.fields[i].fieldName == fieldName && dt.fields[i].usesDecimalPlaces() {
-			return dt.fields[i].fieldDecimalPlaces, nil
-		}
-	}
-
-	return 0, errors.New("Type of field \"" + fieldName + "\" is not Numeric or Float.")
-}
-
-/*
-  getByteSlice converts value to byte slice according to given encoding and return
-  a slice that is length equals to numberOfBytes or less if the string is shorter than
-  numberOfBytes
-*/
-func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
-	e := mahonia.NewEncoder(dt.fileEncoding)
-	b := []byte(e.ConvertString(value))
-
-	if len(b) <= numberOfBytes {
-		s = b
-	} else {
-		s = b[0:numberOfBytes]
-	}
-	return
-}
-
-func (dt *DbfTable) getNormalizedFieldName(name string) (s string) {
-	e := mahonia.NewEncoder(dt.fileEncoding)
-	b := []byte(e.ConvertString(name))
-
-	if len(b) > 10 {
-		b = b[0:10]
-	}
-
-	d := mahonia.NewDecoder(dt.fileEncoding)
-	s = d.ConvertString(string(b))
-
-	return
-}
-
-// Create a new dbase table from scratch
+// New creates a new dbase table from scratch for the given character encoding
 func New(encoding string) (table *DbfTable) {
 
 	// Create and populate DbaseTable struct
@@ -496,4 +124,385 @@ func New(encoding string) (table *DbfTable) {
 	}
 
 	return dt
+}
+
+func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
+	return dt.addField(fieldName, Logical, Logical.fieldLength(), Logical.decimalPlaces())
+}
+
+func (dt *DbfTable) AddDateField(fieldName string) (err error) {
+	return dt.addField(fieldName, Date, Date.fieldLength(), Date.decimalPlaces())
+}
+
+func (dt *DbfTable) AddTextField(fieldName string, length byte) (err error) {
+	return dt.addField(fieldName, Character, length, Character.decimalPlaces())
+}
+
+func (dt *DbfTable) AddNumberField(fieldName string, length byte, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, Numeric, length, decimalPlaces)
+}
+
+func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces uint8) (err error) {
+	return dt.addField(fieldName, Float, length, decimalPlaces)
+}
+
+func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length byte, decimalPlaces uint8) (err error) {
+
+	if dt.dataEntryStarted {
+		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
+	}
+
+	normalizedFieldName := dt.normaliseFieldName(fieldName)
+
+	if dt.HasField(normalizedFieldName) {
+		return errors.New("Field name \"" + normalizedFieldName + "\" already exists!")
+	}
+
+	df := new(DbfField)
+	df.fieldName = normalizedFieldName
+	df.fieldType = fieldType
+	df.fieldLength = length
+	df.fieldDecimalPlaces = decimalPlaces
+
+	slice := dt.convertToByteSlice(normalizedFieldName, 10)
+
+	//fmt.Printf("len slice:%v\n", len(slice))
+
+	// Field name in ASCII (max 10 chracters)
+	for i := 0; i < len(slice); i++ {
+		df.fieldStore[i] = slice[i]
+		//fmt.Printf("i:%s\n", string(slice[i]))
+	}
+
+	// Field names are terminated by 00h
+	df.fieldStore[10] = 0x00
+
+	// Set field's data type
+	// C (Character)  All OEM code page characters.
+	// D (Date)     Numbers and a character to separate month, day, and year (stored internally as 8 digits in YYYYMMDD format).
+	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
+	// F (Floating Point)   - . 0 1 2 3 4 5 6 7 8 9
+	// L (Logical)    ? Y y N n T t F f (? when not initialized).
+	df.fieldStore[11] = fieldType.Byte()
+
+	// length of field
+	df.fieldStore[16] = byte(length)
+
+	// number of decimal places
+	// Applicable only to number/float
+	df.fieldStore[17] = df.fieldDecimalPlaces
+
+	//fmt.Printf("addField | append:%v\n", df)
+
+	dt.fields = append(dt.fields, *df)
+
+	// if createdFromScratch we need to update dbase header to reflect the changes we have made
+	if dt.createdFromScratch {
+		dt.updateHeader()
+	}
+
+	return
+}
+
+func (dt *DbfTable) normaliseFieldName(name string) (s string) {
+	e := mahonia.NewEncoder(dt.fileEncoding)
+	b := []byte(e.ConvertString(name))
+
+	if len(b) > 10 {
+		b = b[0:10]
+	}
+
+	d := mahonia.NewDecoder(dt.fileEncoding)
+	s = d.ConvertString(string(b))
+
+	return
+}
+
+/*
+  getByteSlice converts value to byte slice according to given encoding and return
+  a slice that is length equals to numberOfBytes or less if the string is shorter than
+  numberOfBytes
+*/
+func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
+	e := mahonia.NewEncoder(dt.fileEncoding)
+	b := []byte(e.ConvertString(value))
+
+	if len(b) <= numberOfBytes {
+		s = b
+	} else {
+		s = b[0:numberOfBytes]
+	}
+	return
+}
+
+func (dt *DbfTable) updateHeader() {
+	// first create a slice from initial 32 bytes of datastore as the foundation of the new slice
+	// later we will set this slice to dt.dataStore to create the new header slice
+	slice := dt.dataStore[0:32]
+
+	// set dbase file signature
+	slice[0] = 0x03
+
+	var lengthOfEachRecord uint16 = 0
+
+	for i := range dt.Fields() {
+		lengthOfEachRecord += uint16(dt.Fields()[i].fieldLength)
+		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
+
+		// don't forget to update fieldMap. We need it to find the index of a field name
+		dt.fieldMap[dt.Fields()[i].fieldName] = i
+	}
+
+	// end of file header terminator (0Dh)
+	slice = appendSlice(slice, []byte{0x0D})
+
+	// now reset dt.dataStore slice with the updated one
+	dt.dataStore = slice
+
+	// update the number of bytes in dbase file header
+	dt.numberOfBytesInHeader = uint16(len(slice))
+	s := uint32ToBytes(uint32(dt.numberOfBytesInHeader))
+	dt.dataStore[8] = s[0]
+	dt.dataStore[9] = s[1]
+
+	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // dont forget to add "1" for deletion marker which is 20h
+
+	// update the lenght of each record
+	s = uint32ToBytes(uint32(dt.lengthOfEachRecord))
+	dt.dataStore[10] = s[0]
+	dt.dataStore[11] = s[1]
+
+	return
+}
+
+// Fields return the fields of the table as a slice
+func (dt *DbfTable) Fields() []DbfField {
+	return dt.fields
+}
+
+// FieldNames return the names of fields in the table as a slice
+func (dt *DbfTable) FieldNames() []string {
+	names := make([]string, 0)
+
+	for _, field := range dt.Fields() {
+		names = append(names, field.fieldName)
+	}
+
+	return names
+}
+
+// HasField returns true if the table has a field with the given name
+// If the field does not exist an error is returned.
+func (dt *DbfTable) HasField(fieldName string) bool {
+
+	for i := 0; i < len(dt.fields); i++ {
+		if dt.fields[i].fieldName == fieldName {
+			return true
+		}
+	}
+
+	return false
+}
+
+// DecimalPlacesInField returns the number of decimal places for the field with the given name.
+// If the field does not exist, or does not use decimal places, an error is returned.
+func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
+	if !dt.HasField(fieldName) {
+		return 0, errors.New("Field name \"" + fieldName + "\" does not exist. ")
+	}
+
+	for i := 0; i < len(dt.fields); i++ {
+		if dt.fields[i].fieldName == fieldName && dt.fields[i].usesDecimalPlaces() {
+			return dt.fields[i].fieldDecimalPlaces, nil
+		}
+	}
+
+	return 0, errors.New("Type of field \"" + fieldName + "\" is not Numeric or Float.")
+}
+
+// AddNewRecord adds a new empty record to the table, and returns the index number of the record.
+func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
+
+	if dt.dataEntryStarted == false {
+		dt.dataEntryStarted = true
+	}
+
+	newRecord := make([]byte, dt.lengthOfEachRecord)
+	dt.dataStore = appendSlice(dt.dataStore, newRecord)
+
+	// since row numbers are "0" based first we set newRecordNumber
+	// and then increment number of records in dbase table
+	newRecordNumber = int(dt.numberOfRecords)
+
+	//fmt.Printf("Number of rows before:%d\n", dt.numberOfRecords)
+	dt.numberOfRecords++
+	s := uint32ToBytes(dt.numberOfRecords)
+	dt.dataStore[4] = s[0]
+	dt.dataStore[5] = s[1]
+	dt.dataStore[6] = s[2]
+	dt.dataStore[7] = s[3]
+	//fmt.Printf("Number of rows after:%d\n", dt.numberOfRecords)
+
+	return newRecordNumber
+}
+
+// NumberOfRecords returns the number of records in the table
+func (dt *DbfTable) NumberOfRecords() int {
+	return int(dt.numberOfRecords)
+}
+
+// SetFieldValueByName sets the value for the given row and field name as specified
+// If the field name does not exist, or the value is incompatible with the field's type, an error is returned.
+func (dt *DbfTable) SetFieldValueByName(row int, fieldName string, value string) (err error) {
+	if fieldIndex, found := dt.fieldMap[fieldName]; found {
+		return dt.SetFieldValue(row, fieldIndex, value)
+	}
+	return errors.New("Field name \"" + fieldName + "\" does not exist")
+}
+
+// SetFieldValue sets the value for the given row and field index as specified
+// If the field index is invalid, or the value is incompatible with the field's type, an error is returned.
+func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err error) {
+
+	b := []byte(dt.encoder.ConvertString(value))
+
+	fieldLength := int(dt.fields[fieldIndex].fieldLength)
+
+	//DEBUG
+
+	//fmt.Printf("dt.numberOfBytesInHeader=%v\n\n", dt.numberOfBytesInHeader)
+	//fmt.Printf("dt.lengthOfEachRecord=%v\n\n", dt.lengthOfEachRecord)
+
+	// locate the offset of the field in DbfTable dataStore
+	offset := int(dt.numberOfBytesInHeader)
+	lengthOfRecord := int(dt.lengthOfEachRecord)
+
+	offset = offset + (row * lengthOfRecord)
+
+	recordOffset := 1
+
+	for i := 0; i < len(dt.fields); i++ {
+		if i == fieldIndex {
+			break
+		} else {
+			recordOffset += int(dt.fields[i].fieldLength)
+		}
+	}
+
+	dt.fillFieldWithBlanks(fieldLength, offset, recordOffset)
+
+	// write new value
+	switch dt.fields[fieldIndex].fieldType {
+	case Character, Logical, Date:
+		for i := 0; i < len(b) && i < fieldLength; i++ {
+			dt.dataStore[offset+recordOffset+i] = b[i]
+		}
+	case Float, Numeric:
+		for i := 0; i < fieldLength; i++ {
+			// fmt.Printf("i:%v\n", i)
+			if i < len(b) {
+				dt.dataStore[offset+recordOffset+(fieldLength-i-1)] = b[(len(b)-1)-i]
+			} else {
+				break
+			}
+		}
+	}
+
+	return
+
+	//fmt.Printf("field value:%#v\n", []byte(value))
+	//fmt.Printf("field index:%#v\n", fieldIndex)
+	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].fieldLength)
+	//fmt.Printf("string to byte:%#v\n", b)
+}
+
+func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffset int) {
+	for i := 0; i < fieldLength; i++ {
+		dt.dataStore[offset+recordOffset+i] = blank
+	}
+}
+
+//FieldValue returns the content for the record at the given row and field index as a string
+// If the row or field index is invalid, an error is returned .
+func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
+
+	offset := int(dt.numberOfBytesInHeader)
+	lengthOfRecord := int(dt.lengthOfEachRecord)
+
+	offset = offset + (row * lengthOfRecord)
+
+	recordOffset := 1
+
+	for i := 0; i < len(dt.fields); i++ {
+		if i == fieldIndex {
+			break
+		} else {
+			recordOffset += int(dt.fields[i].fieldLength)
+		}
+	}
+
+	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
+
+	enforceBlankPadding(temp)
+
+	s := dt.decoder.ConvertString(string(temp))
+	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
+
+	value = strings.TrimSpace(s)
+
+	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
+	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
+	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
+	return
+}
+
+// Some Dbf encoders pad with null chars instead of blanks, this forces blanks as per
+// https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+func enforceBlankPadding(temp []byte) {
+	for i := 0; i < len(temp); i++ {
+		if temp[i] == null {
+			temp[i] = blank
+		}
+	}
+}
+
+// Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64
+func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
+	valueAsString, err := dt.FieldValueByName(row, fieldName)
+	return strconv.ParseFloat(valueAsString, 64)
+}
+
+// Int64FieldValueByName returns the value of a field given row number and fieldName provided as an int64
+func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
+	valueAsString, err := dt.FieldValueByName(row, fieldName)
+	return strconv.ParseInt(valueAsString, 0, 64)
+}
+
+// FieldValueByName returns the value of a field given row number and fieldName provided
+func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
+	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
+		return dt.FieldValue(row, fieldIndex), err
+	}
+	err = errors.New("Field name \"" + fieldName + "\" does not exist")
+	return
+}
+
+//RowIsDeleted returns whether a row has marked as deleted
+func (dt *DbfTable) RowIsDeleted(row int) bool {
+	offset := int(dt.numberOfBytesInHeader)
+	lengthOfRecord := int(dt.lengthOfEachRecord)
+	offset = offset + (row * lengthOfRecord)
+	return dt.dataStore[offset:(offset + 1)][0] == 0x2A
+}
+
+// GetRowAsSlice return the record values for the row specified as a string slice
+func (dt *DbfTable) GetRowAsSlice(row int) []string {
+
+	s := make([]string, len(dt.Fields()))
+
+	for i := 0; i < len(dt.Fields()); i++ {
+		s[i] = dt.FieldValue(row, i)
+	}
+
+	return s
 }
