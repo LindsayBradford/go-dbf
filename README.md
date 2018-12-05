@@ -18,7 +18,7 @@ import (
 )
 ```
 
-There's no real documentation as yet. Here is a very simple snippet of example 'load' code to get you going:
+Here is a very simple snippet of example 'load' code to get you going:
 ```go
   dbfTable, err := godbf.NewFromFile("exampleFile.dbf", "UTF8")
 
@@ -30,6 +30,8 @@ There's no real documentation as yet. Here is a very simple snippet of example '
     exampleList[i].someColumnId, err = dbfTable.FieldValueByName(i, "SOME_COLUMN_ID")
   }
 ```
+
+Further examples can be found by browsing the library's test suite. 
   
 ## Projects using godbf
 
