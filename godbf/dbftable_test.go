@@ -104,7 +104,7 @@ func TestDbfTable_AddTextField(t *testing.T) {
 
 	tableUnderTest := New(testEncoding)
 	expectedFieldName := "testText"
-	expectedFieldLength := uint8(20)
+	expectedFieldLength := byte(20)
 	additionError := tableUnderTest.AddTextField(expectedFieldName, expectedFieldLength)
 	g.Expect(additionError).To(BeNil())
 
@@ -122,8 +122,8 @@ func TestDbfTable_AddNumericField(t *testing.T) {
 
 	tableUnderTest := New(testEncoding)
 	expectedFieldName := "testNumber"
-	expectedFieldLength := uint8(20)
-	expectedFDecimalPlaces := uint8(2)
+	expectedFieldLength := byte(20)
+	expectedFDecimalPlaces := byte(2)
 	additionError := tableUnderTest.AddNumberField(expectedFieldName, expectedFieldLength, expectedFDecimalPlaces)
 	g.Expect(additionError).To(BeNil())
 
@@ -142,8 +142,8 @@ func TestDbfTable_AddFloatField(t *testing.T) {
 
 	tableUnderTest := New(testEncoding)
 	expectedFieldName := "testFloat"
-	expectedFieldLength := uint8(20)
-	expectedFDecimalPlaces := uint8(2)
+	expectedFieldLength := byte(20)
+	expectedFDecimalPlaces := byte(2)
 	additionError := tableUnderTest.AddFloatField(expectedFieldName, expectedFieldLength, expectedFDecimalPlaces)
 	g.Expect(additionError).To(BeNil())
 

@@ -73,7 +73,7 @@ func verifyFieldDescriptorsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) 
 	g.Expect(len(fields)).To(BeNumerically("==", expectedFieldNumber))
 
 	expectedFieldNames := []string{"TESTBOOL", "TESTTEXT", "TESTDATE", "TESTNUM", "TESTFLOAT"}
-	g.Expect(expectedFieldNames).To(Equal(tableUnderTest.FieldNames()))
+	g.Expect(tableUnderTest.FieldNames()).To(Equal(expectedFieldNames))
 
 	boolField := tableUnderTest.Fields()[0]
 	g.Expect(boolField.fieldType).To(Equal(Logical))
@@ -101,7 +101,7 @@ func verifyFieldDescriptorsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) 
 func verifyRecordsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	expectedRecordNumber := 3
 	actualRecordNumber := tableUnderTest.NumberOfRecords()
-	g.Expect(expectedRecordNumber).To(BeNumerically("==", actualRecordNumber))
+	g.Expect(actualRecordNumber).To(BeNumerically("==", expectedRecordNumber))
 
 	expectedRecord0Data := []string{"T", "test0", "20180101", "42", "42.01000"}
 	g.Expect(tableUnderTest.GetRowAsSlice(0)).To(Equal(expectedRecord0Data))
