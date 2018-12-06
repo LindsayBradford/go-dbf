@@ -71,15 +71,15 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 
 		//fmt.Printf("Field name:%v\n", name)
 		//fmt.Printf("Field data type:%v\n", string(s[offset+11]))
-		//fmt.Printf("Field length:%v\n", s[offset+16])
+		//fmt.Printf("Field fixedFieldLength:%v\n", s[offset+16])
 		//fmt.Println("-----------------------------------------------")
 	}
 
 	//fmt.Printf("DbfReader:\n%#v\n", dt)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].length))
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))
+	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.

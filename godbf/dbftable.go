@@ -86,10 +86,10 @@ func New(encoding string) (table *DbfTable) {
 	s := make([]byte, dt.numberOfBytesInHeader)
 
 	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].length))
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))
+	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.
@@ -127,15 +127,15 @@ func New(encoding string) (table *DbfTable) {
 }
 
 func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
-	return dt.addField(fieldName, Logical, Logical.fieldLength(), Logical.decimalPlaces())
+	return dt.addField(fieldName, Logical, Logical.fixedFieldLength(), Logical.decimalCountNotApplicable())
 }
 
 func (dt *DbfTable) AddDateField(fieldName string) (err error) {
-	return dt.addField(fieldName, Date, Date.fieldLength(), Date.decimalPlaces())
+	return dt.addField(fieldName, Date, Date.fixedFieldLength(), Date.decimalCountNotApplicable())
 }
 
 func (dt *DbfTable) AddTextField(fieldName string, length byte) (err error) {
-	return dt.addField(fieldName, Character, length, Character.decimalPlaces())
+	return dt.addField(fieldName, Character, length, Character.decimalCountNotApplicable())
 }
 
 func (dt *DbfTable) AddNumberField(fieldName string, length byte, decimalPlaces uint8) (err error) {
@@ -185,7 +185,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	// L (Logical)    ? Y y N n T t F f (? when not initialized).
 	df.fieldStore[11] = df.fieldType.byte()
 
-	// length of field
+	// fixedFieldLength of field
 	df.fieldStore[16] = df.length
 
 	// number of decimal places
@@ -220,7 +220,7 @@ func (dt *DbfTable) normaliseFieldName(name string) (s string) {
 
 /*
   getByteSlice converts value to byte slice according to given encoding and return
-  a slice that is length equals to numberOfBytes or less if the string is shorter than
+  a slice that is fixedFieldLength equals to numberOfBytes or less if the string is shorter than
   numberOfBytes
 */
 func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
@@ -412,7 +412,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 	//fmt.Printf("field value:%#v\n", []byte(value))
 	//fmt.Printf("field index:%#v\n", fieldIndex)
-	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].length)
+	//fmt.Printf("field fixedFieldLength:%v\n", dt.Fields[fieldIndex].fixedFieldLength)
 	//fmt.Printf("string to byte:%#v\n", b)
 }
 
@@ -450,9 +450,9 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
 	value = strings.TrimSpace(s)
 
-	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].length))])
+	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
-	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].length))])
+	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
 	return
 }
 

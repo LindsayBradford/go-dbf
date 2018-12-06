@@ -1,6 +1,6 @@
 package godbf
 
-// FieldDescriptor describes one field/column in a DbfTable (https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, Heading 1.2)
+// FieldDescriptor describes one field/column in a DbfTable as per https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, Heading 1.2.
 type FieldDescriptor struct {
 	name          string
 	fieldType     DbaseDataType
@@ -19,7 +19,7 @@ func (fd *FieldDescriptor) FieldType() DbaseDataType {
 	return fd.fieldType
 }
 
-// FieldType returns the length of data stored for the field
+// FieldType returns the fixedFieldLength of data stored for the field
 func (fd *FieldDescriptor) Length() byte {
 	return fd.length
 }
@@ -30,10 +30,10 @@ func (fd *FieldDescriptor) DecimalCount() byte {
 }
 
 func (fd FieldDescriptor) usesDecimalPlaces() bool {
-	return fd.fieldType.usesDecimalPlaces()
+	return fd.fieldType.usesDecimalCount()
 }
 
-// A dBase data type (https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types")
+// A dBase data type, as per https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types".
 type DbaseDataType byte
 
 const (
@@ -48,18 +48,22 @@ func (ddt DbaseDataType) byte() byte {
 	return byte(ddt)
 }
 
-func (ddt DbaseDataType) fieldLength() byte {
+const notApplicable byte = 0
+
+// fixedFieldLength returns the length in bytes in for the data type if it describes a fixed-length field.
+func (ddt DbaseDataType) fixedFieldLength() byte {
 	switch ddt {
 	case Logical:
 		return 1
 	case Date:
 		return 8
 	default:
-		return 0
+		return notApplicable
 	}
 }
 
-func (ddt DbaseDataType) usesDecimalPlaces() bool {
+// usesDecimalCount indicates whether the data type describes a field that makes use of a field's decimal count setting.
+func (ddt DbaseDataType) usesDecimalCount() bool {
 	switch ddt {
 	case Float, Numeric:
 		return true
@@ -68,6 +72,8 @@ func (ddt DbaseDataType) usesDecimalPlaces() bool {
 	}
 }
 
-func (ddt DbaseDataType) decimalPlaces() byte {
-	return 0
+// decimalCountNotApplicable is a convenience decorator supplying a 0-valued byte. THis is used indicate that the data
+// type describes a field that does not make use its decimal count setting.
+func (ddt DbaseDataType) decimalCountNotApplicable() byte {
+	return notApplicable
 }
