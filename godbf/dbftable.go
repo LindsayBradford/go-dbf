@@ -30,7 +30,7 @@ type DbfTable struct {
 	numberOfFields int // number of fiels/colums in dbase file
 
 	// columns of dbase file
-	fields []DbfField
+	fields []FieldDescriptor
 
 	// used to map field names to index
 	fieldMap map[string]int
@@ -86,7 +86,7 @@ func New(encoding string) (table *DbfTable) {
 	s := make([]byte, dt.numberOfBytesInHeader)
 
 	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].length))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
 	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))
@@ -146,7 +146,7 @@ func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces u
 	return dt.addField(fieldName, Float, length, decimalPlaces)
 }
 
-func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length byte, decimalPlaces uint8) (err error) {
+func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length byte, decimalPlaces uint8) (err error) {
 
 	if dt.dataEntryStarted {
 		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
@@ -158,11 +158,11 @@ func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length by
 		return errors.New("Field name \"" + normalizedFieldName + "\" already exists!")
 	}
 
-	df := new(DbfField)
-	df.fieldName = normalizedFieldName
+	df := new(FieldDescriptor)
+	df.name = normalizedFieldName
 	df.fieldType = fieldType
-	df.fieldLength = length
-	df.fieldDecimalPlaces = decimalPlaces
+	df.length = length
+	df.decimalPlaces = decimalPlaces
 
 	slice := dt.convertToByteSlice(normalizedFieldName, 10)
 
@@ -190,7 +190,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType dbfFieldType, length by
 
 	// number of decimal places
 	// Applicable only to number/float
-	df.fieldStore[17] = df.fieldDecimalPlaces
+	df.fieldStore[17] = df.decimalPlaces
 
 	//fmt.Printf("addField | append:%v\n", df)
 
@@ -246,11 +246,11 @@ func (dt *DbfTable) updateHeader() {
 	var lengthOfEachRecord uint16 = 0
 
 	for i := range dt.Fields() {
-		lengthOfEachRecord += uint16(dt.Fields()[i].fieldLength)
+		lengthOfEachRecord += uint16(dt.Fields()[i].length)
 		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
 
 		// don't forget to update fieldMap. We need it to find the index of a field name
-		dt.fieldMap[dt.Fields()[i].fieldName] = i
+		dt.fieldMap[dt.Fields()[i].name] = i
 	}
 
 	// end of file header terminator (0Dh)
@@ -276,7 +276,7 @@ func (dt *DbfTable) updateHeader() {
 }
 
 // Fields return the fields of the table as a slice
-func (dt *DbfTable) Fields() []DbfField {
+func (dt *DbfTable) Fields() []FieldDescriptor {
 	return dt.fields
 }
 
@@ -285,7 +285,7 @@ func (dt *DbfTable) FieldNames() []string {
 	names := make([]string, 0)
 
 	for _, field := range dt.Fields() {
-		names = append(names, field.fieldName)
+		names = append(names, field.name)
 	}
 
 	return names
@@ -296,7 +296,7 @@ func (dt *DbfTable) FieldNames() []string {
 func (dt *DbfTable) HasField(fieldName string) bool {
 
 	for i := 0; i < len(dt.fields); i++ {
-		if dt.fields[i].fieldName == fieldName {
+		if dt.fields[i].name == fieldName {
 			return true
 		}
 	}
@@ -312,8 +312,8 @@ func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
 	}
 
 	for i := 0; i < len(dt.fields); i++ {
-		if dt.fields[i].fieldName == fieldName && dt.fields[i].usesDecimalPlaces() {
-			return dt.fields[i].fieldDecimalPlaces, nil
+		if dt.fields[i].name == fieldName && dt.fields[i].usesDecimalPlaces() {
+			return dt.fields[i].decimalPlaces, nil
 		}
 	}
 
@@ -366,7 +366,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 	b := []byte(dt.encoder.ConvertString(value))
 
-	fieldLength := int(dt.fields[fieldIndex].fieldLength)
+	fieldLength := int(dt.fields[fieldIndex].length)
 
 	//DEBUG
 
@@ -385,7 +385,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 		if i == fieldIndex {
 			break
 		} else {
-			recordOffset += int(dt.fields[i].fieldLength)
+			recordOffset += int(dt.fields[i].length)
 		}
 	}
 
@@ -412,7 +412,7 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 	//fmt.Printf("field value:%#v\n", []byte(value))
 	//fmt.Printf("field index:%#v\n", fieldIndex)
-	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].fieldLength)
+	//fmt.Printf("field length:%v\n", dt.Fields[fieldIndex].length)
 	//fmt.Printf("string to byte:%#v\n", b)
 }
 
@@ -437,11 +437,11 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 		if i == fieldIndex {
 			break
 		} else {
-			recordOffset += int(dt.fields[i].fieldLength)
+			recordOffset += int(dt.fields[i].length)
 		}
 	}
 
-	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].fieldLength))]
+	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].length))]
 
 	enforceBlankPadding(temp)
 
@@ -450,9 +450,9 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
 	value = strings.TrimSpace(s)
 
-	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
+	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].length))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
-	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fieldLength))])
+	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].length))])
 	return
 }
 
@@ -466,19 +466,19 @@ func enforceBlankPadding(temp []byte) {
 	}
 }
 
-// Float64FieldValueByName returns the value of a field given row number and fieldName provided as a float64
+// Float64FieldValueByName returns the value of a field given row number and name provided as a float64
 func (dt *DbfTable) Float64FieldValueByName(row int, fieldName string) (value float64, err error) {
 	valueAsString, err := dt.FieldValueByName(row, fieldName)
 	return strconv.ParseFloat(valueAsString, 64)
 }
 
-// Int64FieldValueByName returns the value of a field given row number and fieldName provided as an int64
+// Int64FieldValueByName returns the value of a field given row number and name provided as an int64
 func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int64, err error) {
 	valueAsString, err := dt.FieldValueByName(row, fieldName)
 	return strconv.ParseInt(valueAsString, 0, 64)
 }
 
-// FieldValueByName returns the value of a field given row number and fieldName provided
+// FieldValueByName returns the value of a field given row number and name provided
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
 	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
 		return dt.FieldValue(row, fieldIndex), err

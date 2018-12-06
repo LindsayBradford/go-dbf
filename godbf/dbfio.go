@@ -69,14 +69,14 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 			return nil, err
 		}
 
-		//fmt.Printf("Field name:%v\n", fieldName)
+		//fmt.Printf("Field name:%v\n", name)
 		//fmt.Printf("Field data type:%v\n", string(s[offset+11]))
 		//fmt.Printf("Field length:%v\n", s[offset+16])
 		//fmt.Println("-----------------------------------------------")
 	}
 
 	//fmt.Printf("DbfReader:\n%#v\n", dt)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fieldLength))
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].length))
 
 	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
 	//fmt.Printf("length of each record:%v\n", (dt.lengthOfEachRecord))

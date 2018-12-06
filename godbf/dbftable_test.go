@@ -32,7 +32,7 @@ func TestDbfTable_AddBooleanField(t *testing.T) {
 	g.Expect(len(tableUnderTest.Fields())).To(BeNumerically("==", 1))
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 	g.Expect(addedField.fieldType).To(Equal(Logical))
 }
 
@@ -46,7 +46,7 @@ func TestDbfTable_AddBooleanField_TooLongGetsTruncated(t *testing.T) {
 	tableUnderTest.AddBooleanField(suppliedFieldName)
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 }
 
 func TestDbfTable_AddBooleanField_SecondAttemptFails(t *testing.T) {
@@ -95,7 +95,7 @@ func TestDbfTable_AddDateField(t *testing.T) {
 	g.Expect(len(tableUnderTest.Fields())).To(BeNumerically("==", 1))
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 	g.Expect(addedField.fieldType).To(Equal(Date))
 }
 
@@ -112,9 +112,9 @@ func TestDbfTable_AddTextField(t *testing.T) {
 	g.Expect(len(tableUnderTest.Fields())).To(BeNumerically("==", 1))
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 	g.Expect(addedField.fieldType).To(Equal(Character))
-	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
+	g.Expect(addedField.length).To(Equal(expectedFieldLength))
 }
 
 func TestDbfTable_AddNumericField(t *testing.T) {
@@ -131,10 +131,10 @@ func TestDbfTable_AddNumericField(t *testing.T) {
 	g.Expect(len(tableUnderTest.Fields())).To(BeNumerically("==", 1))
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 	g.Expect(addedField.fieldType).To(Equal(Numeric))
-	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
-	g.Expect(addedField.fieldDecimalPlaces).To(Equal(expectedFDecimalPlaces))
+	g.Expect(addedField.length).To(Equal(expectedFieldLength))
+	g.Expect(addedField.decimalPlaces).To(Equal(expectedFDecimalPlaces))
 }
 
 func TestDbfTable_AddFloatField(t *testing.T) {
@@ -151,10 +151,10 @@ func TestDbfTable_AddFloatField(t *testing.T) {
 	g.Expect(len(tableUnderTest.Fields())).To(BeNumerically("==", 1))
 
 	addedField := tableUnderTest.Fields()[0]
-	g.Expect(addedField.fieldName).To(Equal(expectedFieldName))
+	g.Expect(addedField.name).To(Equal(expectedFieldName))
 	g.Expect(addedField.fieldType).To(Equal(Float))
-	g.Expect(addedField.fieldLength).To(Equal(expectedFieldLength))
-	g.Expect(addedField.fieldDecimalPlaces).To(Equal(expectedFDecimalPlaces))
+	g.Expect(addedField.length).To(Equal(expectedFieldLength))
+	g.Expect(addedField.decimalPlaces).To(Equal(expectedFDecimalPlaces))
 }
 
 func TestDbfTable_FieldNames(t *testing.T) {
