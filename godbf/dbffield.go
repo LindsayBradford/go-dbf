@@ -48,7 +48,7 @@ func (ddt DbaseDataType) byte() byte {
 	return byte(ddt)
 }
 
-const notApplicable byte = 0
+const notApplicable = 0x00
 
 // fixedFieldLength returns the length in bytes in for the data type if it describes a fixed-length field.
 func (ddt DbaseDataType) fixedFieldLength() byte {

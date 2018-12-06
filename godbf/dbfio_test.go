@@ -1,6 +1,8 @@
 package godbf
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -18,11 +20,15 @@ func TestDbfTable_NewFromValidFile_NoError(t *testing.T) {
 	g.Expect(readError).To(BeNil())
 }
 
-func TestDbfTable_NewFromValidFile_FieldsCorrect(t *testing.T) {
+func TestDbfTable_NewFromValidFile_FieldDescriptorsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
 
+	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
+}
+
+func verifyFieldDescriptorsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	expectedFieldNumber := 5
 	fields := tableUnderTest.Fields()
 	g.Expect(len(fields)).To(BeNumerically("==", expectedFieldNumber))
@@ -58,6 +64,10 @@ func TestDbfTable_NewFromValidFile_RecordsCorrect(t *testing.T) {
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
 
+	verifyRecordsAreCorrect(tableUnderTest, g)
+}
+
+func verifyRecordsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	expectedRecordNumber := 3
 	actualRecordNumber := tableUnderTest.NumberOfRecords()
 	g.Expect(expectedRecordNumber).To(BeNumerically("==", actualRecordNumber))
@@ -70,4 +80,37 @@ func TestDbfTable_NewFromValidFile_RecordsCorrect(t *testing.T) {
 
 	expectedRecord2Data := []string{"T", "test2", "20180103", "44", "44.03000"}
 	g.Expect(tableUnderTest.GetRowAsSlice(2)).To(Equal(expectedRecord2Data))
+}
+
+func TestDbfTable_SaveFile_LoadOfSavedIsCorrect(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	validTable, _ := NewFromFile(validTestFile, testEncoding)
+
+	tempFile := filepath.Join("testdata", "tempSavedTable.dbf")
+
+	validTable.SaveFile(tempFile)
+	validTable = nil
+
+	tableUnderTest, loadErr := NewFromFile(tempFile, testEncoding)
+
+	g.Expect(loadErr).To(BeNil())
+
+	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
+	verifyRecordsAreCorrect(tableUnderTest, g)
+
+	os.Remove(tempFile)
+}
+
+func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	validTable, _ := NewFromFile(validTestFile, testEncoding)
+
+	tableUnderTest, byteArrayErr := NewFromByteArray(validTable.dataStore, testEncoding)
+
+	g.Expect(byteArrayErr).To(BeNil())
+
+	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
+	verifyRecordsAreCorrect(tableUnderTest, g)
 }
