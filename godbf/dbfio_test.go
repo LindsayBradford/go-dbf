@@ -1,6 +1,7 @@
 package godbf
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,12 +21,50 @@ func TestDbfTable_NewFromValidFile_NoError(t *testing.T) {
 	g.Expect(readError).To(BeNil())
 }
 
-func TestDbfTable_NewFromValidFile_FieldDescriptorsCorrect(t *testing.T) {
+func TestDbfTable_NewFromValidFile_TableIsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
 
+	verifyTableIsCorrect(tableUnderTest, g)
+}
+
+func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	tableUnderTest, byteArrayErr := NewFromByteArray(rawFileBytes, testEncoding)
+	g.Expect(byteArrayErr).To(BeNil())
+
+	verifyTableIsCorrect(tableUnderTest, g)
+}
+
+func TestDbfTable_SaveFile_LoadOfSavedIsCorrect(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	tableFromBytes, _ := NewFromByteArray(rawFileBytes, testEncoding)
+	rawFileBytes = nil
+
+	tempFile := filepath.Join("testdata", "tempSavedTable.dbf")
+	tableFromBytes.SaveFile(tempFile)
+
+	tableUnderTest, loadErr := NewFromFile(tempFile, testEncoding)
+
+	g.Expect(loadErr).To(BeNil())
+
+	verifyTableIsCorrect(tableUnderTest, g)
+
+	os.Remove(tempFile)
+}
+
+func verifyTableIsCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
+	verifyRecordsAreCorrect(tableUnderTest, g)
 }
 
 func verifyFieldDescriptorsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
@@ -59,14 +98,6 @@ func verifyFieldDescriptorsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) 
 	g.Expect(floatField.decimalPlaces).To(BeNumerically("==", 2))
 }
 
-func TestDbfTable_NewFromValidFile_RecordsCorrect(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
-
-	verifyRecordsAreCorrect(tableUnderTest, g)
-}
-
 func verifyRecordsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	expectedRecordNumber := 3
 	actualRecordNumber := tableUnderTest.NumberOfRecords()
@@ -80,37 +111,4 @@ func verifyRecordsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 
 	expectedRecord2Data := []string{"T", "test2", "20180103", "44", "44.03000"}
 	g.Expect(tableUnderTest.GetRowAsSlice(2)).To(Equal(expectedRecord2Data))
-}
-
-func TestDbfTable_SaveFile_LoadOfSavedIsCorrect(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	validTable, _ := NewFromFile(validTestFile, testEncoding)
-
-	tempFile := filepath.Join("testdata", "tempSavedTable.dbf")
-
-	validTable.SaveFile(tempFile)
-	validTable = nil
-
-	tableUnderTest, loadErr := NewFromFile(tempFile, testEncoding)
-
-	g.Expect(loadErr).To(BeNil())
-
-	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
-	verifyRecordsAreCorrect(tableUnderTest, g)
-
-	os.Remove(tempFile)
-}
-
-func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	validTable, _ := NewFromFile(validTestFile, testEncoding)
-
-	tableUnderTest, byteArrayErr := NewFromByteArray(validTable.dataStore, testEncoding)
-
-	g.Expect(byteArrayErr).To(BeNil())
-
-	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
-	verifyRecordsAreCorrect(tableUnderTest, g)
 }
