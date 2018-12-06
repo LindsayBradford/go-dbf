@@ -33,7 +33,7 @@ func (fd FieldDescriptor) usesDecimalPlaces() bool {
 	return fd.fieldType.usesDecimalPlaces()
 }
 
-// A dBase Data Type (https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types")
+// A dBase data type (https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types")
 type DbaseDataType byte
 
 const (
@@ -44,7 +44,7 @@ const (
 	Float     DbaseDataType = 'F'
 )
 
-func (ddt DbaseDataType) Byte() byte {
+func (ddt DbaseDataType) byte() byte {
 	return byte(ddt)
 }
 

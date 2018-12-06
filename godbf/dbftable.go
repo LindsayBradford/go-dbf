@@ -164,7 +164,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	df.length = length
 	df.decimalPlaces = decimalPlaces
 
-	slice := dt.convertToByteSlice(normalizedFieldName, 10)
+	slice := dt.convertToByteSlice(df.name, 10)
 
 	//fmt.Printf("len slice:%v\n", len(slice))
 
@@ -183,10 +183,10 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	// N (Numeric)    - . 0 1 2 3 4 5 6 7 8 9
 	// F (Floating Point)   - . 0 1 2 3 4 5 6 7 8 9
 	// L (Logical)    ? Y y N n T t F f (? when not initialized).
-	df.fieldStore[11] = fieldType.Byte()
+	df.fieldStore[11] = df.fieldType.byte()
 
 	// length of field
-	df.fieldStore[16] = byte(length)
+	df.fieldStore[16] = df.length
 
 	// number of decimal places
 	// Applicable only to number/float
