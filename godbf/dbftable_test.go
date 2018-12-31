@@ -8,6 +8,7 @@ import (
 )
 
 const testEncoding = "UTF-8"
+const realEncoding = "cp866"
 
 // For reference: https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
 
