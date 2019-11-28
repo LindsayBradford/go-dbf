@@ -328,6 +328,10 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	}
 
 	newRecord := make([]byte, dt.lengthOfEachRecord)
+
+	// set deletion marker to blank
+	newRecord[0] = blank 
+
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
