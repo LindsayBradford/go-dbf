@@ -330,7 +330,7 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	newRecord := make([]byte, dt.lengthOfEachRecord)
 
 	// set deletion marker to blank
-	newRecord[0] = blank 
+	newRecord[0] = blank
 
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
@@ -353,6 +353,15 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 // NumberOfRecords returns the number of records in the table
 func (dt *DbfTable) NumberOfRecords() int {
 	return int(dt.numberOfRecords)
+}
+
+// HasRecord returns true if the table has a record with the given number
+// otherwise, false is returned.
+// This is useful while reading a incomplete file(writing by other program),
+// Use this method before FieldValue() can avoid index-out-of-range error.
+func (dt *DbfTable) HasRecord(recordNumber int) bool {
+	recordOffset := int(dt.numberOfBytesInHeader) + recordNumber*int(dt.lengthOfEachRecord)
+	return len(dt.dataStore) >= recordOffset+int(dt.lengthOfEachRecord)
 }
 
 // SetFieldValueByName sets the value for the given row and field name as specified
