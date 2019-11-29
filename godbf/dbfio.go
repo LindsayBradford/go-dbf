@@ -85,8 +85,14 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	// phase changing schema of dbase file is not allowed.
 	dt.dataEntryStarted = true
 
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
+	// set DbfTable dataStore slice that will store the complete file in memory,
+	// and remove the end of file marker (0x1A)
+	lengthWithoutEOF := int(dt.lengthOfEachRecord)*int(dt.numberOfRecords) + int(dt.numberOfBytesInHeader)
+	if len(s) > lengthWithoutEOF && s[lengthWithoutEOF] == 0x1A {
+		dt.dataStore = s[:lengthWithoutEOF]
+	} else {
+		dt.dataStore = s
+	}
 
 	return dt, nil
 }
