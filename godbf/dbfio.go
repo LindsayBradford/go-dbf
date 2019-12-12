@@ -9,10 +9,12 @@ import (
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
-	if s, err := readFile(fileName); err == nil {
-		return createDbfTable(s, fileEncoding)
+	s, err := readFile(fileName)
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	return createDbfTable(s, fileEncoding)
 }
 
 func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err error) {
