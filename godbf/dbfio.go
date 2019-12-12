@@ -48,7 +48,7 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	for i := 0; i < int(dt.numberOfFields); i++ {
 		offset := (i * 32) + 32
 
-		fieldName := strings.Trim(dt.encoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
+		fieldName := strings.Trim(dt.decoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
 		dt.fieldMap[fieldName] = i
 
 		var err error
