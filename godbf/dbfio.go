@@ -9,6 +9,11 @@ import (
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("%v", e)
+		}
+	}()
 	s, err := readFile(fileName)
 	if err != nil {
 		return nil, err
@@ -43,6 +48,11 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 
 	// Number of fields in dbase table
 	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+
+	fileSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord)
+	if len(s) < int(fileSize) {
+		return nil, fmt.Errorf("imcomplete file")
+	}
 
 	// populate dbf fields
 	for i := 0; i < int(dt.numberOfFields); i++ {
@@ -109,7 +119,7 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	defer f.Close()
 
-	dsBytes, dsErr := f.Write(dt.dataStore)
+	_, dsErr := f.Write(dt.dataStore)
 
 	if dsErr != nil {
 		return dsErr
@@ -117,13 +127,11 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	// Add dbase end of file marker (1Ah)
 
-	footerByte, footerErr := f.Write([]byte{0x1A})
+	_, footerErr := f.Write([]byte{0x1A})
 
 	if footerErr != nil {
 		return footerErr
 	}
-
-	fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
 
 	return
 }
