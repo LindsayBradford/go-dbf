@@ -448,7 +448,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	s := dt.decoder.ConvertString(string(temp))
 	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
 
-	value = strings.TrimSpace(s)
+	value = strings.TrimRight(s, " ")
 
 	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
