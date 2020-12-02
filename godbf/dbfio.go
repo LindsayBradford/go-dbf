@@ -1,7 +1,6 @@
 package godbf
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
