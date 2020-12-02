@@ -101,7 +101,7 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	defer f.Close()
 
-	dsBytes, dsErr := f.Write(dt.dataStore)
+	_, dsErr := f.Write(dt.dataStore)
 
 	if dsErr != nil {
 		return dsErr
@@ -109,13 +109,13 @@ func (dt *DbfTable) SaveFile(filename string) (err error) {
 
 	// Add dbase end of file marker (1Ah)
 
-	footerByte, footerErr := f.Write([]byte{0x1A})
+	_, footerErr := f.Write([]byte{0x1A})
 
 	if footerErr != nil {
 		return footerErr
 	}
 
-	fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
+	//fmt.Printf("%v bytes written to file '%v'.\n", dsBytes+footerByte, filename)
 
 	return
 }
