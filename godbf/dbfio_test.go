@@ -10,6 +10,7 @@ import (
 )
 
 const validTestFile = "testdata/validFile.dbf"
+const realFile = "testdata/122016B1.DBF"
 
 // For reference: https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
 
@@ -111,4 +112,15 @@ func verifyRecordsAreCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 
 	expectedRecord2Data := []string{"T", "test2", "20180103", "44", "44.03000"}
 	g.Expect(tableUnderTest.GetRowAsSlice(2)).To(Equal(expectedRecord2Data))
+}
+
+func TestFieldsNameCorrectDetect(t *testing.T) {
+	g := NewGomegaWithT(t)
+	tableUnderTest, _ := NewFromFile(realFile, realEncoding)
+	expectedFieldNumber := 18
+	fields := tableUnderTest.Fields()
+	g.Expect(len(fields)).To(BeNumerically("==", expectedFieldNumber))
+
+	expectedFieldNames := []string{"REGN", "PLAN", "NUM_SC", "A_P", "VR", "VV", "VITG", "ORA", "OVA", "OITGA", "ORP", "OVP", "OITGP", "IR", "IV", "IITG", "DT", "PRIZ"}
+	g.Expect(tableUnderTest.FieldNames()).To(Equal(expectedFieldNames))
 }

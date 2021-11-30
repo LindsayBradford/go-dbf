@@ -1,11 +1,10 @@
 package godbf
 
 import (
+	"bytes"
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/axgle/mahonia"
+	"os"
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
@@ -45,8 +44,10 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 	// populate dbf fields
 	for i := 0; i < int(dt.numberOfFields); i++ {
 		offset := (i * 32) + 32
-
-		fieldName := strings.Trim(dt.encoder.ConvertString(string(s[offset:offset+10])), string([]byte{0}))
+		byteArray := s[offset : offset+10]
+		n := bytes.Index(byteArray, []byte{0})
+		fieldName := dt.encoder.ConvertString(string(byteArray[:n]))
+		//fmt.Println([]byte(fieldName))
 		dt.fieldMap[fieldName] = i
 
 		var err error
