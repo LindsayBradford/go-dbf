@@ -2,7 +2,6 @@ package godbf
 
 import (
 	"io"
-	"os"
 	//"fmt"
 )
 
@@ -29,7 +28,7 @@ func appendSlice(slice, data []byte) []byte {
 }
 
 func readFile(filename string) ([]byte, error) {
-	f, err := os.Open(filename)
+	f, err := Open(filename)
 	if err != nil {
 		return nil, err
 	}
