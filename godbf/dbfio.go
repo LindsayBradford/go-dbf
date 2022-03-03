@@ -3,8 +3,9 @@ package godbf
 import (
 	"bytes"
 	"fmt"
-	"github.com/axgle/mahonia"
 	"os"
+
+	"github.com/axgle/mahonia"
 )
 
 func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, err error) {
@@ -46,6 +47,9 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 		offset := (i * 32) + 32
 		byteArray := s[offset : offset+10]
 		n := bytes.Index(byteArray, []byte{0})
+		if n == -1 {
+			n = 10
+		}
 		fieldName := dt.encoder.ConvertString(string(byteArray[:n]))
 		//fmt.Println([]byte(fieldName))
 		dt.fieldMap[fieldName] = i
