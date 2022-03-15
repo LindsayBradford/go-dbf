@@ -1,5 +1,6 @@
-// Package godbf offers functionality for loading and saving DBF files according to the dBASE Version 7
-// (https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm) file structure.
+// Package godbf offers functionality for loading and saving  "dBASE Version 5" dbf formatted files.
+// (https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE) file structure.
+// For the definitive source, see http://www.dbase.com/manuals/57LanguageReference.zip
 package godbf
 
 import (

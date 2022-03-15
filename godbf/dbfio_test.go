@@ -12,7 +12,7 @@ import (
 const validTestFile = "testdata/validFile.dbf"
 const realFile = "testdata/122016B1.DBF"
 
-// For reference: https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+// For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
 
 func TestDbfTable_NewFromValidFile_NoError(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -27,7 +27,7 @@ func TestDbfTable_NewFromValidFile_TableIsCorrect(t *testing.T) {
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
 
-	//t.Logf("DbfReader:\n%#v\n", tableUnderTest)
+	t.Logf("DbfReader:\n%#v\n", tableUnderTest)
 	t.Logf("tableUnderTest.FieldNames() = %v\n", tableUnderTest.FieldNames())
 	t.Logf("tableUnderTest.NumberOfRecords() = %v\n", tableUnderTest.NumberOfRecords())
 	t.Logf("tableUnderTest.lengthOfEachRecord  %v\n", tableUnderTest.lengthOfEachRecord)
