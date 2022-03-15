@@ -27,6 +27,11 @@ func TestDbfTable_NewFromValidFile_TableIsCorrect(t *testing.T) {
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
 
+	//t.Logf("DbfReader:\n%#v\n", tableUnderTest)
+	t.Logf("tableUnderTest.FieldNames() = %v\n", tableUnderTest.FieldNames())
+	t.Logf("tableUnderTest.NumberOfRecords() = %v\n", tableUnderTest.NumberOfRecords())
+	t.Logf("tableUnderTest.lengthOfEachRecord  %v\n", tableUnderTest.lengthOfEachRecord)
+
 	verifyTableIsCorrect(tableUnderTest, g)
 }
 
@@ -42,7 +47,7 @@ func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
 	verifyTableIsCorrect(tableUnderTest, g)
 }
 
-func TestDbfTable_SaveFile_LoadOfSavedIsCorrect(t *testing.T) {
+func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
@@ -51,16 +56,18 @@ func TestDbfTable_SaveFile_LoadOfSavedIsCorrect(t *testing.T) {
 	tableFromBytes, _ := NewFromByteArray(rawFileBytes, testEncoding)
 	rawFileBytes = nil
 
-	tempFile := filepath.Join("testdata", "tempSavedTable.dbf")
-	tableFromBytes.SaveFile(tempFile)
+	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
+	saveErr := SaveToFile(tableFromBytes, tempFilename)
+	g.Expect(saveErr).To(BeNil())
 
-	tableUnderTest, loadErr := NewFromFile(tempFile, testEncoding)
+	tableUnderTest, loadErr := NewFromFile(tempFilename, testEncoding)
 
 	g.Expect(loadErr).To(BeNil())
 
 	verifyTableIsCorrect(tableUnderTest, g)
 
-	os.Remove(tempFile)
+	removeErr := os.Remove(tempFilename)
+	g.Expect(removeErr).To(BeNil())
 }
 
 func verifyTableIsCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {

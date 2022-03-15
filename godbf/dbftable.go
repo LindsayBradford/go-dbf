@@ -506,3 +506,8 @@ func (dt *DbfTable) GetRowAsSlice(row int) []string {
 
 	return s
 }
+
+// Deprecated: Use SaveToFile() instead.
+func (dt *DbfTable) SaveFile(filename string) error {
+	return errors.New("godbf.DbfTable.SaveFile() is deprecated; Use godbf.SaveToFile() instead")
+}
