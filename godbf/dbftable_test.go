@@ -10,7 +10,7 @@ import (
 const testEncoding = "UTF-8"
 const realEncoding = "cp866"
 
-// For reference: https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+// For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
 
 func TestDbfTable_New(t *testing.T) {
 	g := NewGomegaWithT(t)

@@ -155,7 +155,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	normalizedFieldName := dt.normaliseFieldName(fieldName)
 
 	if dt.HasField(normalizedFieldName) {
-		return errors.New("Field name \"" + normalizedFieldName + "\" already exists!")
+		return errors.New("Field name \"" + normalizedFieldName + "\" already exists")
 	}
 
 	df := new(FieldDescriptor)
@@ -164,7 +164,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	df.length = length
 	df.decimalPlaces = decimalPlaces
 
-	slice := dt.convertToByteSlice(df.name, 10)
+	slice := dt.convertToByteSlice(df.name, maxFieldNameByteLength)
 
 	//fmt.Printf("len slice:%v\n", len(slice))
 
@@ -175,7 +175,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	}
 
 	// Field names are terminated by 00h
-	df.fieldStore[10] = 0x00
+	df.fieldStore[maxFieldNameByteLength] = endOfFieldMarker
 
 	// Set field's data type
 	// C (Character)  All OEM code page characters.
@@ -204,12 +204,14 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	return
 }
 
+const maxFieldNameByteLength = 10
+
 func (dt *DbfTable) normaliseFieldName(name string) (s string) {
 	e := mahonia.NewEncoder(dt.fileEncoding)
 	b := []byte(e.ConvertString(name))
 
-	if len(b) > 10 {
-		b = b[0:10]
+	if len(b) > maxFieldNameByteLength {
+		b = b[0:maxFieldNameByteLength]
 	}
 
 	d := mahonia.NewDecoder(dt.fileEncoding)

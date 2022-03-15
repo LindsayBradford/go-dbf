@@ -55,12 +55,10 @@ func unpackFields(s []byte, dt *DbfTable) error {
 	return nil
 }
 
-func unpackField(s []byte, dt *DbfTable, i int) error {
-	offset := (i * 32) + 32
-	byteArray := s[offset : offset+10]
-	n := bytes.Index(byteArray, []byte{0})
-	fieldName := dt.encoder.ConvertString(string(byteArray[:n]))
-	dt.fieldMap[fieldName] = i
+func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
+	offset := (fieldIndex * 32) + 32
+	fieldName := deriveFieldName(s, dt, offset)
+	dt.fieldMap[fieldName] = fieldIndex
 
 	var unpackErr error
 
@@ -82,6 +80,16 @@ func unpackField(s []byte, dt *DbfTable, i int) error {
 	}
 
 	return nil
+}
+
+const endOfFieldMarker byte = 0x0
+
+func deriveFieldName(s []byte, dt *DbfTable, offset int) string {
+	nameBytes := s[offset : offset+maxFieldNameByteLength+1]
+	// Max usable field length is 10 bytes, where the 11th is guaranteed to contain the eod of field marker.
+	endOfFieldIndex := bytes.Index(nameBytes, []byte{endOfFieldMarker})
+	fieldName := dt.encoder.ConvertString(string(nameBytes[:endOfFieldIndex]))
+	return fieldName
 }
 
 func unpackHeader(s []byte, dt *DbfTable) {
