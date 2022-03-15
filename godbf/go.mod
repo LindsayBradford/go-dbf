@@ -1,6 +1,6 @@
 module godbf
 
-// 	To sync the vendor directory, run:  go mod vendor
+// 	To sync the vendor directory, run:  go mod vendor from the directory housing this file.
 
 go 1.17
 

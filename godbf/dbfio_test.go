@@ -70,6 +70,24 @@ func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 	g.Expect(removeErr).To(BeNil())
 }
 
+func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	// Pad entire name byte range, including the final 11th byte, with non-terminating characters.
+	const startByteOfFirstFieldName = 32
+	for i := startByteOfFirstFieldName; i <= startByteOfFirstFieldName+fieldNameByteLength; i++ {
+		rawFileBytes[i] = 0x41 // UTF-8 'A'
+	}
+
+	_, byteArrayErr := NewFromByteArray(rawFileBytes, testEncoding)
+	t.Log(byteArrayErr)
+
+	g.Expect(byteArrayErr.Error()).To(ContainSubstring("end-of-field marker missing"))
+}
+
 func verifyTableIsCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
 	verifyFieldDescriptorsAreCorrect(tableUnderTest, g)
 	verifyRecordsAreCorrect(tableUnderTest, g)

@@ -5,6 +5,8 @@ package godbf
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"github.com/axgle/mahonia"
 	"os"
 )
@@ -57,7 +59,12 @@ func unpackFields(s []byte, dt *DbfTable) error {
 
 func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 	offset := (fieldIndex * 32) + 32
-	fieldName := deriveFieldName(s, dt, offset)
+
+	fieldName, deriveErr := deriveFieldName(s, dt, offset)
+	if deriveErr != nil {
+		return deriveErr
+	}
+
 	dt.fieldMap[fieldName] = fieldIndex
 
 	var unpackErr error
@@ -84,12 +91,18 @@ func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 
 const endOfFieldMarker byte = 0x0
 
-func deriveFieldName(s []byte, dt *DbfTable, offset int) string {
-	nameBytes := s[offset : offset+maxFieldNameByteLength+1]
-	// Max usable field length is 10 bytes, where the 11th is guaranteed to contain the eod of field marker.
+func deriveFieldName(s []byte, dt *DbfTable, offset int) (string, error) {
+	nameBytes := s[offset : offset+fieldNameByteLength]
+
+	// Max usable field length is 10 bytes, where the 11th should contain the eod of field marker.
 	endOfFieldIndex := bytes.Index(nameBytes, []byte{endOfFieldMarker})
+	if endOfFieldIndex == -1 {
+		msg := fmt.Sprintf("end-of-field marker missing from field bytes, offset [%d,%d]", offset, offset+fieldNameByteLength)
+		return "", errors.New(msg)
+	}
+
 	fieldName := dt.encoder.ConvertString(string(nameBytes[:endOfFieldIndex]))
-	return fieldName
+	return fieldName, nil
 }
 
 func unpackHeader(s []byte, dt *DbfTable) {

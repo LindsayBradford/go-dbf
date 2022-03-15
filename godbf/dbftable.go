@@ -164,7 +164,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	df.length = length
 	df.decimalPlaces = decimalPlaces
 
-	slice := dt.convertToByteSlice(df.name, maxFieldNameByteLength)
+	slice := dt.convertToByteSlice(df.name, fieldNameByteLength)
 
 	//fmt.Printf("len slice:%v\n", len(slice))
 
@@ -175,7 +175,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	}
 
 	// Field names are terminated by 00h
-	df.fieldStore[maxFieldNameByteLength] = endOfFieldMarker
+	df.fieldStore[fieldNameByteLength] = endOfFieldMarker
 
 	// Set field's data type
 	// C (Character)  All OEM code page characters.
@@ -204,14 +204,17 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	return
 }
 
-const maxFieldNameByteLength = 10
+const (
+	fieldNameByteLength     = 11
+	maxUsableNameByteLength = fieldNameByteLength - 1
+)
 
 func (dt *DbfTable) normaliseFieldName(name string) (s string) {
 	e := mahonia.NewEncoder(dt.fileEncoding)
 	b := []byte(e.ConvertString(name))
 
-	if len(b) > maxFieldNameByteLength {
-		b = b[0:maxFieldNameByteLength]
+	if len(b) > maxUsableNameByteLength {
+		b = b[0:maxUsableNameByteLength]
 	}
 
 	d := mahonia.NewDecoder(dt.fileEncoding)
