@@ -5,7 +5,7 @@ type FieldDescriptor struct {
 	name          string
 	fieldType     DbaseDataType
 	length        byte
-	decimalPlaces byte
+	decimalPlaces byte // Field decimal count in binary
 	fieldStore    [32]byte
 }
 
@@ -24,9 +24,9 @@ func (fd *FieldDescriptor) Length() byte {
 	return fd.length
 }
 
-// FieldType returns the count of decimal places for the field
-func (fd *FieldDescriptor) DecimalCount() byte {
-	return fd.length
+// DecimalPlaces returns the count of decimal places for the field
+func (fd *FieldDescriptor) DecimalPlaces() byte {
+	return fd.decimalPlaces
 }
 
 func (fd FieldDescriptor) usesDecimalPlaces() bool {
