@@ -114,7 +114,7 @@ func deriveFieldName(s []byte, dt *DbfTable, offset int) (string, error) {
 		return "", errors.New(msg)
 	}
 
-	fieldName := dt.encoder.ConvertString(string(nameBytes[:endOfFieldIndex]))
+	fieldName := dt.decoder.ConvertString(string(nameBytes[:endOfFieldIndex]))
 	return fieldName, nil
 }
 
