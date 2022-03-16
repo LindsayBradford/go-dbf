@@ -34,8 +34,21 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 		return nil, fieldErr
 	}
 
+	if verifyErr := verifyHeaderAgainstByteArray(s, dt); verifyErr != nil {
+		return nil, verifyErr
+	}
+
 	finaliseSchema(s, dt)
 	return dt, nil
+}
+
+func verifyHeaderAgainstByteArray(s []byte, dt *DbfTable) error {
+	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
+	actualSize := uint32(len(s))
+	if actualSize != expectedSize {
+		return fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize)
+	}
+	return nil
 }
 
 func finaliseSchema(s []byte, dt *DbfTable) {
@@ -148,7 +161,7 @@ func writeContent(dt *DbfTable, f *os.File) error {
 	if dsErr := writeDataStore(dt, f); dsErr != nil {
 		return dsErr
 	}
-	if footerErr := writeFooter(f); footerErr != nil {
+	if footerErr := writeFooter(dt, f); footerErr != nil {
 		return footerErr
 	}
 	return nil
@@ -163,8 +176,14 @@ func writeDataStore(dt *DbfTable, f *os.File) error {
 
 const EofMarker byte = 0x1A
 
-func writeFooter(f *os.File) error {
+func writeFooter(dt *DbfTable, f *os.File) error {
 	eofBytes := []byte{EofMarker}
+
+	dataStoreLength := len(dt.dataStore)
+	if dt.dataStore[dataStoreLength-1] == EofMarker {
+		return nil
+	}
+
 	if _, footerErr := f.Write(eofBytes); footerErr != nil {
 		return footerErr
 	}

@@ -10,6 +10,8 @@ import (
 )
 
 const validTestFile = "testdata/validFile.dbf"
+const lessThanActualRecordsFile = "testdata/lessThanActualRecords.dbf"
+
 const realFile = "testdata/122016B1.DBF"
 
 // For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
@@ -86,6 +88,15 @@ func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
 	t.Log(byteArrayErr)
 
 	g.Expect(byteArrayErr.Error()).To(ContainSubstring("end-of-field marker missing"))
+}
+
+func TestDbfTable_NewFromLessThanActualRecords_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+	t.Log(readError)
 }
 
 func verifyTableIsCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {
