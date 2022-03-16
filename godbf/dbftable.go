@@ -166,15 +166,11 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 
 	slice := dt.convertToByteSlice(df.name, fieldNameByteLength)
 
-	//fmt.Printf("len slice:%v\n", len(slice))
-
 	// Field name in ASCII (max 10 chracters)
 	for i := 0; i < len(slice); i++ {
 		df.fieldStore[i] = slice[i]
-		//fmt.Printf("i:%s\n", string(slice[i]))
 	}
 
-	// Field names are terminated by 00h
 	df.fieldStore[fieldNameByteLength] = endOfFieldMarker
 
 	// Set field's data type
@@ -270,9 +266,9 @@ func (dt *DbfTable) updateHeader() {
 	dt.dataStore[8] = s[0]
 	dt.dataStore[9] = s[1]
 
-	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // dont forget to add "1" for deletion marker which is 20h
+	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // don't forget to add "1" for deletion marker which is 20h
 
-	// update the lenght of each record
+	// update the length of each record
 	s = uint32ToBytes(uint32(dt.lengthOfEachRecord))
 	dt.dataStore[10] = s[0]
 	dt.dataStore[11] = s[1]
@@ -322,21 +318,25 @@ func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
 		}
 	}
 
-	return 0, errors.New("Type of field \"" + fieldName + "\" is not Numeric or Float.")
+	return 0, errors.New("type of field \"" + fieldName + "\" is not Numeric or Float")
 }
 
+const recordDeletionFlagIndex = 0
+const recordIsActive = blank
+const recordIsDeleted = 0x2A
+
 // AddNewRecord adds a new empty record to the table, and returns the index number of the record.
-func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
+func (dt *DbfTable) AddNewRecord() (newRecordNumber int, addErr error) {
+	if dt.lengthOfEachRecord == 0 {
+		return -1, errors.New("attempted to add record with no fields defined")
+	}
 
 	if dt.dataEntryStarted == false {
 		dt.dataEntryStarted = true
 	}
 
 	newRecord := make([]byte, dt.lengthOfEachRecord)
-	// each record begins with a 1-byte "deletion" flag. If record is active the byte's value is a space (0x20)
-	if dt.lengthOfEachRecord > 0 {
-		newRecord[0] = 0x20
-	}
+	newRecord[recordDeletionFlagIndex] = recordIsActive
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
@@ -352,12 +352,19 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	dt.dataStore[7] = s[3]
 	//fmt.Printf("Number of rows after:%d\n", dt.numberOfRecords)
 
-	return newRecordNumber
+	return newRecordNumber, nil
 }
 
 // NumberOfRecords returns the number of records in the table
 func (dt *DbfTable) NumberOfRecords() int {
 	return int(dt.numberOfRecords)
+}
+
+// HasRecord returns true if the table has a record with the given number otherwise, false is returned.
+// Use this method before FieldValue() to avoid index-out-of-range errors.
+func (dt *DbfTable) HasRecord(recordNumber int) bool {
+	recordOffset := int(dt.numberOfBytesInHeader) + recordNumber*int(dt.lengthOfEachRecord)
+	return len(dt.dataStore) >= recordOffset+int(dt.lengthOfEachRecord)
 }
 
 // SetFieldValueByName sets the value for the given row and field name as specified
@@ -501,7 +508,7 @@ func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return dt.dataStore[offset:(offset + 1)][0] == 0x2A
+	return dt.dataStore[offset:(offset + 1)][recordDeletionFlagIndex] == recordIsDeleted
 }
 
 // GetRowAsSlice return the record values for the row specified as a string slice
