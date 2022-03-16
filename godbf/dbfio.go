@@ -12,7 +12,13 @@ import (
 )
 
 // NewFromFile creates a DbfTable, reading it from a file with the given file name, expecting the supplied encoding.
-func NewFromFile(fileName string, fileEncoding string) (*DbfTable, error) {
+func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, newErr error) {
+	defer func() {
+		if e := recover(); e != nil {
+			newErr = fmt.Errorf("%v", e)
+		}
+	}()
+
 	data, readErr := readFile(fileName)
 	if readErr != nil {
 		return nil, readErr
@@ -21,7 +27,13 @@ func NewFromFile(fileName string, fileEncoding string) (*DbfTable, error) {
 }
 
 // NewFromByteArray creates a DbfTable, reading it from a raw byte array, expecting the supplied encoding.
-func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, err error) {
+func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr error) {
+	defer func() {
+		if e := recover(); e != nil {
+			newErr = fmt.Errorf("%v", e)
+		}
+	}()
+
 	return createDbfTable(data, fileEncoding)
 }
 
@@ -34,21 +46,18 @@ func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) 
 		return nil, fieldErr
 	}
 
-	if verifyErr := verifyHeaderAgainstByteArray(s, dt); verifyErr != nil {
-		return nil, verifyErr
-	}
+	verifyHeaderAgainstByteArray(s, dt)
 
 	finaliseSchema(s, dt)
 	return dt, nil
 }
 
-func verifyHeaderAgainstByteArray(s []byte, dt *DbfTable) error {
+func verifyHeaderAgainstByteArray(s []byte, dt *DbfTable) {
 	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
 	actualSize := uint32(len(s))
 	if actualSize != expectedSize {
-		return fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize)
+		panic(fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize))
 	}
-	return nil
 }
 
 func finaliseSchema(s []byte, dt *DbfTable) {
@@ -138,6 +147,12 @@ func assignEncoding(fileEncoding string, dt *DbfTable) {
 
 // SaveToFile saves the supplied DbfTable to a file of the specified filename
 func SaveToFile(dt *DbfTable, filename string) (saveErr error) {
+	defer func() {
+		if e := recover(); e != nil {
+			saveErr = fmt.Errorf("%v", e)
+		}
+	}()
+
 	f, createErr := os.Create(filename)
 	if createErr != nil {
 		return createErr
