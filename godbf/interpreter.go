@@ -1,6 +1,3 @@
-// Package godbf offers functionality for loading and saving  "dBASE Version 5" dbf formatted files.
-// (https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE) file structure.
-// For the definitive source, see http://www.dbase.com/manuals/57LanguageReference.zip
 package godbf
 
 import (
@@ -8,23 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/axgle/mahonia"
-	"os"
+	"time"
 )
-
-// NewFromFile creates a DbfTable, reading it from a file with the given file name, expecting the supplied encoding.
-func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, newErr error) {
-	defer func() {
-		if e := recover(); e != nil {
-			newErr = fmt.Errorf("%v", e)
-		}
-	}()
-
-	data, readErr := readFile(fileName)
-	if readErr != nil {
-		return nil, readErr
-	}
-	return createDbfTable(data, fileEncoding)
-}
 
 // NewFromByteArray creates a DbfTable, reading it from a raw byte array, expecting the supplied encoding.
 func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr error) {
@@ -34,10 +16,10 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr
 		}
 	}()
 
-	return createDbfTable(data, fileEncoding)
+	return decodeByteArray(data, fileEncoding)
 }
 
-func createDbfTable(s []byte, fileEncoding string) (table *DbfTable, err error) {
+func decodeByteArray(s []byte, fileEncoding string) (table *DbfTable, err error) {
 	dt := new(DbfTable)
 	assignEncoding(fileEncoding, dt)
 	unpackHeader(s, dt)
@@ -145,62 +127,73 @@ func assignEncoding(fileEncoding string, dt *DbfTable) {
 	dt.decoder = mahonia.NewDecoder(fileEncoding)
 }
 
-// SaveToFile saves the supplied DbfTable to a file of the specified filename
-func SaveToFile(dt *DbfTable, filename string) (saveErr error) {
-	defer func() {
-		if e := recover(); e != nil {
-			saveErr = fmt.Errorf("%v", e)
-		}
-	}()
+// New creates a new dbase table from scratch for the given character encoding
+func New(encoding string) (table *DbfTable) {
 
-	f, createErr := os.Create(filename)
-	if createErr != nil {
-		return createErr
+	// Create and populate DbaseTable struct
+	dt := new(DbfTable)
+
+	dt.fileEncoding = encoding
+	dt.encoder = mahonia.NewEncoder(encoding)
+	dt.decoder = mahonia.NewDecoder(encoding)
+
+	// set whether or not this table has been created from scratch
+	dt.createdFromScratch = true
+
+	// read dbase table header information
+	dt.fileSignature = 0x03
+	dt.updateYear = byte(time.Now().Year() - 1900)
+	dt.updateMonth = byte(time.Now().Month())
+	dt.updateDay = byte(time.Now().Day())
+	dt.numberOfRecords = 0
+	dt.numberOfBytesInHeader = 32
+	dt.lengthOfEachRecord = 0
+
+	// create fieldMap to translate field name to index
+	dt.fieldMap = make(map[string]int)
+
+	// Number of fields in dbase table
+	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+
+	s := make([]byte, dt.numberOfBytesInHeader)
+
+	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
+	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
+
+	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
+	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
+
+	// Since we are reading dbase file from the disk at least at this
+	// phase changing schema of dbase file is not allowed.
+	dt.dataEntryStarted = false
+
+	// set DbfTable dataStore slice that will store the complete file in memory
+	dt.dataStore = s
+
+	dt.dataStore[0] = dt.fileSignature
+	dt.dataStore[1] = dt.updateYear
+	dt.dataStore[2] = dt.updateMonth
+	dt.dataStore[3] = dt.updateDay
+
+	// no MDX file (index upon demand)
+	dt.dataStore[28] = 0x00
+
+	// set dbase language driver
+	// Huston we have problem!
+	// There is no easy way to deal with encoding issues. At least at the moment
+	// I will try to find archaic encoding code defined by dbase standard (if there is any)
+	// for given encoding. If none match I will go with default ANSI.
+	//
+	// Despite this flag in set in dbase file, I will continue to use provide encoding for
+	// the everything except this file encoding flag.
+	//
+	// Why? To make sure at least if you know the real encoding you can process text accordingly.
+
+	if code, ok := encodingTable[lookup[encoding]]; ok {
+		dt.dataStore[29] = code
+	} else {
+		dt.dataStore[29] = 0x57 // ANSI
 	}
 
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			saveErr = closeErr
-		}
-	}()
-
-	writeErr := writeContent(dt, f)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return saveErr
-}
-
-func writeContent(dt *DbfTable, f *os.File) error {
-	if dsErr := writeDataStore(dt, f); dsErr != nil {
-		return dsErr
-	}
-	if footerErr := writeFooter(dt, f); footerErr != nil {
-		return footerErr
-	}
-	return nil
-}
-
-func writeDataStore(dt *DbfTable, f *os.File) error {
-	if _, dsErr := f.Write(dt.dataStore); dsErr != nil {
-		return dsErr
-	}
-	return nil
-}
-
-const EofMarker byte = 0x1A
-
-func writeFooter(dt *DbfTable, f *os.File) error {
-	eofBytes := []byte{EofMarker}
-
-	dataStoreLength := len(dt.dataStore)
-	if dt.dataStore[dataStoreLength-1] == EofMarker {
-		return nil
-	}
-
-	if _, footerErr := f.Write(eofBytes); footerErr != nil {
-		return footerErr
-	}
-	return nil
+	return dt
 }

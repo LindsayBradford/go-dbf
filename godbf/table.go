@@ -2,11 +2,9 @@ package godbf
 
 import (
 	"errors"
+	"github.com/axgle/mahonia"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/axgle/mahonia"
 )
 
 const (
@@ -53,77 +51,6 @@ type DbfTable struct {
 
 	// keeps the dbase table in memory as byte array
 	dataStore []byte
-}
-
-// New creates a new dbase table from scratch for the given character encoding
-func New(encoding string) (table *DbfTable) {
-
-	// Create and populate DbaseTable struct
-	dt := new(DbfTable)
-
-	dt.fileEncoding = encoding
-	dt.encoder = mahonia.NewEncoder(encoding)
-	dt.decoder = mahonia.NewDecoder(encoding)
-
-	// set whether or not this table has been created from scratch
-	dt.createdFromScratch = true
-
-	// read dbase table header information
-	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() - 1900)
-	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().Day())
-	dt.numberOfRecords = 0
-	dt.numberOfBytesInHeader = 32
-	dt.lengthOfEachRecord = 0
-
-	// create fieldMap to translate field name to index
-	dt.fieldMap = make(map[string]int)
-
-	// Number of fields in dbase table
-	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
-
-	s := make([]byte, dt.numberOfBytesInHeader)
-
-	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
-
-	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
-
-	// Since we are reading dbase file from the disk at least at this
-	// phase changing schema of dbase file is not allowed.
-	dt.dataEntryStarted = false
-
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
-
-	dt.dataStore[0] = dt.fileSignature
-	dt.dataStore[1] = dt.updateYear
-	dt.dataStore[2] = dt.updateMonth
-	dt.dataStore[3] = dt.updateDay
-
-	// no MDX file (index upon demand)
-	dt.dataStore[28] = 0x00
-
-	// set dbase language driver
-	// Huston we have problem!
-	// There is no easy way to deal with encoding issues. At least at the moment
-	// I will try to find archaic encoding code defined by dbase standard (if there is any)
-	// for given encoding. If none match I will go with default ANSI.
-	//
-	// Despite this flag in set in dbase file, I will continue to use provide encoding for
-	// the everything except this file encoding flag.
-	//
-	// Why? To make sure at least if you know the real encoding you can process text accordingly.
-
-	if code, ok := encodingTable[lookup[encoding]]; ok {
-		dt.dataStore[29] = code
-	} else {
-		dt.dataStore[29] = 0x57 // ANSI
-	}
-
-	return dt
 }
 
 func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
