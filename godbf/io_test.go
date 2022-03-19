@@ -1,12 +1,12 @@
 package godbf
 
 import (
+	. "github.com/onsi/gomega"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
-
-	. "github.com/onsi/gomega"
+	"time"
 )
 
 const validTestFile = "testdata/validFile.dbf"
@@ -76,9 +76,11 @@ func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest := New(testEncoding)
+	sampleTime := tableUnderTest.LowDefTime(time.Now())
 
 	g.Expect(tableUnderTest.NumberOfRecords()).To(BeZero())
 	g.Expect(len(tableUnderTest.Fields())).To(BeZero())
+	g.Expect(tableUnderTest.LastUpdated()).To(Equal(sampleTime))
 
 	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
 	saveErr := SaveToFile(tableUnderTest, tempFilename)
@@ -89,6 +91,7 @@ func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
 
 	g.Expect(loadedTable.NumberOfRecords()).To(BeZero())
 	g.Expect(len(loadedTable.Fields())).To(BeZero())
+	g.Expect(loadedTable.LastUpdated()).To(Equal(sampleTime))
 
 	removeErr := os.Remove(tempFilename)
 	g.Expect(removeErr).To(BeNil())

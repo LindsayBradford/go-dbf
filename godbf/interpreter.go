@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/axgle/mahonia"
-	"time"
 )
 
 // NewFromByteArray creates a DbfTable, reading it from a raw byte array, expecting the supplied encoding.
@@ -17,7 +15,7 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr
 	}()
 
 	dt := new(DbfTable)
-	assignEncoding(fileEncoding, dt)
+	dt.UseEncoding(fileEncoding)
 	unpackHeader(data, dt)
 	unpackRecords(data, dt)
 	unpackFooter(data, dt)
@@ -30,11 +28,7 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr
 
 func unpackHeader(s []byte, dt *DbfTable) error {
 	dt.fileSignature = s[0]
-
-	dt.updateYear = s[1]
-	dt.updateMonth = s[2]
-	dt.updateDay = s[3]
-
+	dt.SetLastUpdatedFromBytes(s[1:4])
 	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
 	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
 	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
@@ -88,8 +82,6 @@ func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 	return nil
 }
 
-const endOfFieldNameMarker byte = 0x0
-
 func deriveFieldName(s []byte, dt *DbfTable, offset int) string {
 	nameBytes := s[offset : offset+fieldNameByteLength]
 
@@ -132,13 +124,7 @@ func verifyTableAgainstRawHeader(s []byte, dt *DbfTable) {
 }
 
 func lockSchema(dt *DbfTable) {
-	dt.dataEntryStarted = true // Schema changes no longer permitted
-}
-
-func assignEncoding(fileEncoding string, dt *DbfTable) {
-	dt.fileEncoding = fileEncoding
-	dt.encoder = mahonia.NewEncoder(fileEncoding)
-	dt.decoder = mahonia.NewDecoder(fileEncoding)
+	dt.schemaLocked = true // Schema changes no longer permitted
 }
 
 // New creates a new dbase table from scratch for the given character encoding
@@ -147,16 +133,14 @@ func New(encoding string) (table *DbfTable) {
 	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
-	assignEncoding(encoding, dt)
+	dt.UseEncoding(encoding)
 
 	// set whether or not this table has been created from scratch
 	dt.createdFromScratch = true
 
 	// read dbase table header information
 	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() - 1900)
-	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().Day())
+	dt.RefreshLastUpdated()
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
@@ -179,7 +163,7 @@ func New(encoding string) (table *DbfTable) {
 
 	// Since we are reading dbase file from the disk at least at this
 	// phase changing schema of dbase file is not allowed.
-	dt.dataEntryStarted = false
+	dt.schemaLocked = false
 
 	// set DbfTable dataStore slice that will store the complete file in memory
 	dt.dataStore = s
