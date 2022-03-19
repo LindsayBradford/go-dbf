@@ -20,7 +20,7 @@ func NewFromFile(fileName string, fileEncoding string) (table *DbfTable, newErr 
 	if readErr != nil {
 		return nil, readErr
 	}
-	return decodeByteArray(data, fileEncoding)
+	return NewFromByteArray(data, fileEncoding)
 }
 
 // SaveToFile saves the supplied DbfTable to a file of the specified filename
@@ -51,34 +51,8 @@ func SaveToFile(dt *DbfTable, filename string) (saveErr error) {
 }
 
 func writeContent(dt *DbfTable, f *os.File) error {
-	if dsErr := writeDataStore(dt, f); dsErr != nil {
-		return dsErr
-	}
-	if footerErr := writeFooter(dt, f); footerErr != nil {
-		return footerErr
-	}
-	return nil
-}
-
-func writeDataStore(dt *DbfTable, f *os.File) error {
 	if _, dsErr := f.Write(dt.dataStore); dsErr != nil {
 		return dsErr
-	}
-	return nil
-}
-
-const EofMarker byte = 0x1A
-
-func writeFooter(dt *DbfTable, f *os.File) error {
-	eofBytes := []byte{EofMarker}
-
-	dataStoreLength := len(dt.dataStore)
-	if dt.dataStore[dataStoreLength-1] == EofMarker {
-		return nil
-	}
-
-	if _, footerErr := f.Write(eofBytes); footerErr != nil {
-		return footerErr
 	}
 	return nil
 }

@@ -72,6 +72,28 @@ func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 	g.Expect(removeErr).To(BeNil())
 }
 
+func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	g.Expect(tableUnderTest.NumberOfRecords()).To(BeZero())
+	g.Expect(len(tableUnderTest.Fields())).To(BeZero())
+
+	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
+	saveErr := SaveToFile(tableUnderTest, tempFilename)
+	g.Expect(saveErr).To(BeNil())
+
+	loadedTable, loadErr := NewFromFile(tempFilename, testEncoding)
+	g.Expect(loadErr).To(BeNil())
+
+	g.Expect(loadedTable.NumberOfRecords()).To(BeZero())
+	g.Expect(len(loadedTable.Fields())).To(BeZero())
+
+	removeErr := os.Remove(tempFilename)
+	g.Expect(removeErr).To(BeNil())
+}
+
 func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
 	g := NewGomegaWithT(t)
 

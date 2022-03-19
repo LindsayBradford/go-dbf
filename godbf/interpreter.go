@@ -16,35 +16,33 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr
 		}
 	}()
 
-	return decodeByteArray(data, fileEncoding)
-}
-
-func decodeByteArray(s []byte, fileEncoding string) (table *DbfTable, err error) {
 	dt := new(DbfTable)
 	assignEncoding(fileEncoding, dt)
-	unpackHeader(s, dt)
+	unpackHeader(data, dt)
+	unpackRecords(data, dt)
+	unpackFooter(data, dt)
 
-	if fieldErr := unpackFields(s, dt); fieldErr != nil {
-		return nil, fieldErr
-	}
+	verifyTableAgainstRawBytes(data, dt)
 
-	verifyHeaderAgainstByteArray(s, dt)
-
-	finaliseSchema(s, dt)
+	lockSchema(dt)
 	return dt, nil
 }
 
-func verifyHeaderAgainstByteArray(s []byte, dt *DbfTable) {
-	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
-	actualSize := uint32(len(s))
-	if actualSize != expectedSize {
-		panic(fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize))
-	}
-}
+func unpackHeader(s []byte, dt *DbfTable) error {
+	dt.fileSignature = s[0]
 
-func finaliseSchema(s []byte, dt *DbfTable) {
-	dt.dataEntryStarted = true // Schema changes no longer permitted
-	dt.dataStore = s           // TODO: Deprecate?
+	dt.updateYear = s[1]
+	dt.updateMonth = s[2]
+	dt.updateDay = s[3]
+
+	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
+	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
+	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
+
+	if fieldErr := unpackFields(s, dt); fieldErr != nil {
+		return fieldErr
+	}
+	return nil
 }
 
 func unpackFields(s []byte, dt *DbfTable) error {
@@ -64,10 +62,7 @@ func unpackFields(s []byte, dt *DbfTable) error {
 func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 	offset := (fieldIndex * 32) + 32
 
-	fieldName, deriveErr := deriveFieldName(s, dt, offset)
-	if deriveErr != nil {
-		return deriveErr
-	}
+	fieldName := deriveFieldName(s, dt, offset)
 
 	dt.fieldMap[fieldName] = fieldIndex
 
@@ -93,32 +88,51 @@ func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 	return nil
 }
 
-const endOfFieldMarker byte = 0x0
+const endOfFieldNameMarker byte = 0x0
 
-func deriveFieldName(s []byte, dt *DbfTable, offset int) (string, error) {
+func deriveFieldName(s []byte, dt *DbfTable, offset int) string {
 	nameBytes := s[offset : offset+fieldNameByteLength]
 
 	// Max usable field length is 10 bytes, where the 11th should contain the eod of field marker.
-	endOfFieldIndex := bytes.Index(nameBytes, []byte{endOfFieldMarker})
+	endOfFieldIndex := bytes.Index(nameBytes, []byte{endOfFieldNameMarker})
 	if endOfFieldIndex == -1 {
 		msg := fmt.Sprintf("end-of-field marker missing from field bytes, offset [%d,%d]", offset, offset+fieldNameByteLength)
-		return "", errors.New(msg)
+		panic(errors.New(msg))
 	}
 
 	fieldName := dt.decoder.ConvertString(string(nameBytes[:endOfFieldIndex]))
-	return fieldName, nil
+	return fieldName
 }
 
-func unpackHeader(s []byte, dt *DbfTable) {
-	dt.fileSignature = s[0]
+func unpackRecords(data []byte, dt *DbfTable) {
+	dt.dataStore = data // TODO: Deprecate?  At least reduce scope to just its records.
+}
 
-	dt.updateYear = s[1]
-	dt.updateMonth = s[2]
-	dt.updateDay = s[3]
+func unpackFooter(data []byte, dt *DbfTable) {
+	dt.eofMarker = data[len(data)-1]
+}
 
-	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
-	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
-	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
+func verifyTableAgainstRawBytes(s []byte, dt *DbfTable) {
+	verifyTableAgainstRawHeader(s, dt)
+	verifyTableAgainstRawFooter(s, dt)
+}
+
+func verifyTableAgainstRawFooter(s []byte, dt *DbfTable) {
+	if dt.eofMarker != eofMarker {
+		panic(fmt.Errorf("encoded footer is %v, but actual footer is %d", eofMarker, s[len(s)-1]))
+	}
+}
+
+func verifyTableAgainstRawHeader(s []byte, dt *DbfTable) {
+	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
+	actualSize := uint32(len(s))
+	if actualSize != expectedSize {
+		panic(fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize))
+	}
+}
+
+func lockSchema(dt *DbfTable) {
+	dt.dataEntryStarted = true // Schema changes no longer permitted
 }
 
 func assignEncoding(fileEncoding string, dt *DbfTable) {
@@ -133,9 +147,7 @@ func New(encoding string) (table *DbfTable) {
 	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
 
-	dt.fileEncoding = encoding
-	dt.encoder = mahonia.NewEncoder(encoding)
-	dt.decoder = mahonia.NewDecoder(encoding)
+	assignEncoding(encoding, dt)
 
 	// set whether or not this table has been created from scratch
 	dt.createdFromScratch = true
@@ -148,14 +160,16 @@ func New(encoding string) (table *DbfTable) {
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
+	dt.fieldTerminator = 0x0D
 
 	// create fieldMap to translate field name to index
 	dt.fieldMap = make(map[string]int)
 
 	// Number of fields in dbase table
 	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+	dt.eofMarker = eofMarker
 
-	s := make([]byte, dt.numberOfBytesInHeader)
+	s := make([]byte, dt.numberOfBytesInHeader+1) // +1 is for footer
 
 	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
 	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
@@ -194,6 +208,10 @@ func New(encoding string) (table *DbfTable) {
 	} else {
 		dt.dataStore[29] = 0x57 // ANSI
 	}
+
+	dt.updateHeader()
+	// no records as yet
+	dt.dataStore = appendSlice(dt.dataStore, []byte{dt.eofMarker})
 
 	return dt
 }

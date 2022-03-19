@@ -8,12 +8,28 @@ import (
 )
 
 const (
-	null  = 0x00
-	blank = 0x20
+	null      byte = 0x00
+	blank     byte = 0x20
+	eofMarker byte = 0x1A
 )
 
+// For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
 type DbfTable struct {
-	// dbase file header information
+	dbaseData
+
+	tableManagement
+	imageCache
+}
+
+// dbase file information
+type dbaseData struct {
+	header
+	records
+	eofMarker byte
+}
+
+// dbase file header information
+type header struct {
 	fileSignature         uint8 // Valid dBASE III PLUS table file (03h without a memo .DBT file; 83h with a memo)
 	updateYear            uint8 // Date of last update; in YYMMDD format.
 	updateMonth           uint8
@@ -23,33 +39,46 @@ type DbfTable struct {
 	lengthOfEachRecord    uint16   // Number of bytes in the record.
 	reservedBytes         [20]byte // Reserved bytes
 	fieldDescriptor       [32]byte // Field descriptor array
-	fieldTerminator       int8     // 0Dh stored as the field terminator.
-
-	numberOfFields int // number of fiels/colums in dbase file
 
 	// columns of dbase file
-	fields []FieldDescriptor
+	fields          []FieldDescriptor
+	fieldTerminator int8 // 0Dh stored as the field terminator.
+}
 
-	// used to map field names to index
-	fieldMap map[string]int
+type records []record
+
+type record struct {
+	deletionFlag byte
+	recordValue  string
+}
+
+type tableManagement struct {
+	numberOfFields int // number of fields/columns in dbase file
+
+	fieldMap map[string]int // used to map field names to index
+
 	/*
 	   "dataEntryStarted" flag is used to control whether we can change
-	   dbase table structure when data enty started you can not change
+	   dbase table structure when data entry started you can not change
 	   the schema of the file if you are reading from an existing file this
 	   file will be set to "true". This means you can not modify the schema
 	   of a dbase table that you loaded from a file.
 	*/
 	dataEntryStarted bool
 
-	// cratedFromScratch is used before adding new fields to increment nu
-	createdFromScratch bool
+	createdFromScratch bool // used before adding new fields to increment nu
+	encodingSupport
+}
 
-	// encoding of dbase file
+// encoding of dbase file
+type encodingSupport struct {
 	fileEncoding string
 	decoder      mahonia.Decoder
 	encoder      mahonia.Encoder
+}
 
-	// keeps the dbase table in memory as byte array
+// imageCache keeps a dbase table in memory as its byte array encoding
+type imageCache struct {
 	dataStore []byte
 }
 
@@ -74,7 +103,6 @@ func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces u
 }
 
 func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length byte, decimalPlaces uint8) (err error) {
-
 	if dt.dataEntryStarted {
 		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
 	}
@@ -98,7 +126,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 		df.fieldStore[i] = slice[i]
 	}
 
-	df.fieldStore[fieldNameByteLength] = endOfFieldMarker
+	df.fieldStore[fieldNameByteLength] = endOfFieldNameMarker
 
 	// Set field's data type
 	// C (Character)  All OEM code page characters.
@@ -254,7 +282,7 @@ const recordIsDeleted = 0x2A
 
 // AddNewRecord adds a new empty record to the table, and returns the index number of the record.
 func (dt *DbfTable) AddNewRecord() (newRecordNumber int, addErr error) {
-	if dt.lengthOfEachRecord == 0 {
+	if dt.lengthOfEachRecord <= 1 {
 		return -1, errors.New("attempted to add record with no fields defined")
 	}
 
