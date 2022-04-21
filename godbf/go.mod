@@ -1,8 +1,8 @@
-module godbf
+module github.com/LindsayBradford/go-dbf/godbf
 
 // 	To sync the vendor directory, run:  go mod vendor
 
-go 1.17
+go 1.18
 
 require (
 	github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394
