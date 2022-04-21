@@ -195,7 +195,7 @@ func New(encoding string) (table *DbfTable) {
 
 	dt.updateHeader()
 	// no records as yet
-	dt.dataStore = appendSlice(dt.dataStore, []byte{dt.eofMarker})
+	dt.dataStore = append(dt.dataStore, dt.eofMarker)
 
 	return dt
 }

@@ -284,14 +284,14 @@ func (dt *DbfTable) updateHeader() {
 
 	for i := range dt.Fields() {
 		lengthOfEachRecord += uint16(dt.Fields()[i].length)
-		slice = appendSlice(slice, dt.Fields()[i].fieldStore[:])
+		slice = append(slice, dt.Fields()[i].fieldStore[:]...)
 
 		// don't forget to update fieldMap. We need it to find the index of a field name
 		dt.fieldMap[dt.Fields()[i].name] = i
 	}
 
 	// end of file header terminator (0Dh)
-	slice = appendSlice(slice, []byte{0x0D})
+	slice = append(slice, 0x0D)
 
 	// now reset dt.dataStore slice with the updated one
 	dt.dataStore = slice
@@ -367,7 +367,7 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int, addErr error) {
 
 	newRecord := make([]byte, dt.lengthOfEachRecord)
 	newRecord[recordDeletionFlagIndex] = recordIsActive
-	dt.dataStore = appendSlice(dt.dataStore, newRecord)
+	dt.dataStore = append(dt.dataStore, newRecord...)
 
 	// since row numbers are "0" based first we set newRecordNumber
 	// and then increment number of records in dbase table

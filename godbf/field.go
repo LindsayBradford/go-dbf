@@ -19,7 +19,7 @@ func (fd *FieldDescriptor) FieldType() DbaseDataType {
 	return fd.fieldType
 }
 
-// FieldType returns the fixedFieldLength of data stored for the field
+// Length returns the length of data stored for the field
 func (fd *FieldDescriptor) Length() byte {
 	return fd.length
 }
@@ -33,7 +33,7 @@ func (fd FieldDescriptor) usesDecimalPlaces() bool {
 	return fd.fieldType.usesDecimalCount()
 }
 
-// A dBase data type, as per https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types".
+// DbaseDataType is dBase data type, as per https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm, under heading "Storage of dBASE Data Types".
 type DbaseDataType byte
 
 const (
