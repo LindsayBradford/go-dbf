@@ -1,22 +1,8 @@
 package godbf
 
-import (
-	"fmt"
-)
-
 var lookup map[string]string
 var encoding map[int]byte
-var encodingTable map[string]byte // this map is used to convert dbase fileencodings to mahonia library encodings
-
-func main() {
-	//dizi := []int{437, 850, 1252, 10000, 865, 437, 850, 437, 437, 850, 437, 850, 437, 850, 932, 850, 437, 850, 865, 437, 437, 850, 437, 863, 850, 852, 852, 852, 860, 850, 866, 850, 852, 936, 949, 950, 874, 1252, 1252, 852, 866, 865, 861, 895, 620, 737, 857, 863, 950, 949, 936, 932, 874, 737, 852, 857, 10007, 10029, 10006, 1250, 1251, 1254, 1253, 1257}
-
-	if code, ok := encodingTable[lookup["l5"]]; ok {
-		fmt.Printf("code=%x", code)
-	} else {
-		panic("unsupported encoding")
-	}
-}
+var encodingTable map[string]byte // this map is used to convert dbase file encodings to mahonia library encodings
 
 func init() {
 	lookup = make(map[string]string)

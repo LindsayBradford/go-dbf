@@ -1,15 +1,17 @@
 package godbf
 
 import (
+	. "github.com/onsi/gomega"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
-
-	. "github.com/onsi/gomega"
+	"time"
 )
 
 const validTestFile = "testdata/validFile.dbf"
+const lessThanActualRecordsFile = "testdata/lessThanActualRecords.dbf"
+
 const realFile = "testdata/122016B1.DBF"
 
 // For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
@@ -68,6 +70,58 @@ func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 
 	removeErr := os.Remove(tempFilename)
 	g.Expect(removeErr).To(BeNil())
+}
+
+func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+	sampleTime := tableUnderTest.LowDefTime(time.Now())
+
+	g.Expect(tableUnderTest.NumberOfRecords()).To(BeZero())
+	g.Expect(len(tableUnderTest.Fields())).To(BeZero())
+	g.Expect(tableUnderTest.LastUpdated()).To(Equal(sampleTime))
+
+	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
+	saveErr := SaveToFile(tableUnderTest, tempFilename)
+	g.Expect(saveErr).To(BeNil())
+
+	loadedTable, loadErr := NewFromFile(tempFilename, testEncoding)
+	g.Expect(loadErr).To(BeNil())
+
+	g.Expect(loadedTable.NumberOfRecords()).To(BeZero())
+	g.Expect(len(loadedTable.Fields())).To(BeZero())
+	g.Expect(loadedTable.LastUpdated()).To(Equal(sampleTime))
+
+	removeErr := os.Remove(tempFilename)
+	g.Expect(removeErr).To(BeNil())
+}
+
+func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	// Pad entire name byte range, including the final 11th byte, with non-terminating characters.
+	const startByteOfFirstFieldName = 32
+	for i := startByteOfFirstFieldName; i <= startByteOfFirstFieldName+fieldNameByteLength; i++ {
+		rawFileBytes[i] = 0x41 // UTF-8 'A'
+	}
+
+	_, byteArrayErr := NewFromByteArray(rawFileBytes, testEncoding)
+	t.Log(byteArrayErr)
+
+	g.Expect(byteArrayErr.Error()).To(ContainSubstring("end-of-field marker missing"))
+}
+
+func TestDbfTable_NewFromLessThanActualRecords_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+	t.Log(readError)
 }
 
 func verifyTableIsCorrect(tableUnderTest *DbfTable, g *GomegaWithT) {

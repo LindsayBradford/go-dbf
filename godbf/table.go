@@ -2,128 +2,170 @@ package godbf
 
 import (
 	"errors"
+	"github.com/axgle/mahonia"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/axgle/mahonia"
 )
 
 const (
-	null  = 0x00
-	blank = 0x20
+	yearOffset      = 1900
+	null       byte = 0x00
+	blank      byte = 0x20
+
+	fieldNameByteLength          = 11
+	maxUsableNameByteLength      = fieldNameByteLength - 1
+	endOfFieldNameMarker    byte = 0x0
+
+	recordDeletionFlagIndex = 0
+	recordIsActive          = blank
+	recordIsDeleted         = 0x2A
+
+	eofMarker byte = 0x1A
 )
 
+// DbfTable is an in-memory container for dbase formatted data, and state that helps manage that data.
 type DbfTable struct {
-	// dbase file header information
-	fileSignature         uint8 // Valid dBASE III PLUS table file (03h without a memo .DBT file; 83h with a memo)
-	updateYear            uint8 // Date of last update; in YYMMDD format.
-	updateMonth           uint8
-	updateDay             uint8
+	dbaseData
+
+	tableManagement
+	imageCache
+}
+
+// dbaseData stores dBase file information in byte-arrays, for convnient saving and loading dBase compatible files.
+// For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
+type dbaseData struct {
+	header
+	records
+	eofMarker byte
+}
+
+// dbase file header information
+type header struct {
+	fileSignature uint8 // Valid dBASE III PLUS table file (03h without a memo .DBT file; 83h with a memo)
+	dateOfLastUpdate
 	numberOfRecords       uint32   // Number of records in the table.
 	numberOfBytesInHeader uint16   // Number of bytes in the header.
 	lengthOfEachRecord    uint16   // Number of bytes in the record.
 	reservedBytes         [20]byte // Reserved bytes
 	fieldDescriptor       [32]byte // Field descriptor array
-	fieldTerminator       int8     // 0Dh stored as the field terminator.
-
-	numberOfFields int // number of fiels/colums in dbase file
 
 	// columns of dbase file
-	fields []FieldDescriptor
-
-	// used to map field names to index
-	fieldMap map[string]int
-	/*
-	   "dataEntryStarted" flag is used to control whether we can change
-	   dbase table structure when data enty started you can not change
-	   the schema of the file if you are reading from an existing file this
-	   file will be set to "true". This means you can not modify the schema
-	   of a dbase table that you loaded from a file.
-	*/
-	dataEntryStarted bool
-
-	// cratedFromScratch is used before adding new fields to increment nu
-	createdFromScratch bool
-
-	// encoding of dbase file
-	fileEncoding string
-	decoder      mahonia.Decoder
-	encoder      mahonia.Encoder
-
-	// keeps the dbase table in memory as byte array
-	dataStore []byte
+	fields          []FieldDescriptor
+	fieldTerminator int8 // 0Dh stored as the field terminator.
 }
 
-// New creates a new dbase table from scratch for the given character encoding
-func New(encoding string) (table *DbfTable) {
+// dateOfLastUpdate holds the date of last update; in YYMMDD format where each is stored in a single byte, as per dBase.
+// A consequence of this is that the lowest level of granularity supported is a whole 24-hour day.
+// Because measures smaller than a day cannot be encoded, for any time.Time conversion, the 'time of day' for a given
+// encoded day is assumed to be 12:00:00AM of that day.
+//
+// Timezones are also not supported. All date manipulation done via this struct assume the time.Local location applies.
+// Callers should thus be careful to ensure that they are using time.Local as their location  when interfacing
+// with the various decorator methods.
+//
+// The updateYear byte encodes the year number (0-255). The actual gregorian calendar year is derived by adding
+// 1900 to the byte's value. Consequently, the range of years supported is [1900-2155] inclusive.
+//
+// The updateMonth byte encodes the 0-indexed month number (0-11).
+//
+// The updateDay byte encodes the 0-indexed day of the month (0-30).
+type dateOfLastUpdate struct {
+	updateYear  uint8 // YY + yearOffset (1900) = actual year.
+	updateMonth uint8
+	updateDay   uint8
+}
 
-	// Create and populate DbaseTable struct
-	dt := new(DbfTable)
+// RefreshLastUpdated refreshes the dateOfLastUpdate to the YYMMDD byte encoding of today, assuming the local timezone.
+// SetLastUpdated() is used by this method, and the same restrictions for it apply here.
+func (ud *dateOfLastUpdate) RefreshLastUpdated() {
+	ud.SetLastUpdated(time.Now())
+}
 
-	dt.fileEncoding = encoding
-	dt.encoder = mahonia.NewEncoder(encoding)
-	dt.decoder = mahonia.NewDecoder(encoding)
+// SetLastUpdated sets the dateOfLastUpdate to the YYMMDD byte encoding of the time.Time specified.
+// See dateOfLastUpdate for the various limitations present in interpreting time.Time.
+func (ud *dateOfLastUpdate) SetLastUpdated(updateTime time.Time) {
+	ud.updateYear = byte(updateTime.Year() - yearOffset)
+	ud.updateMonth = byte(updateTime.Month())
+	ud.updateDay = byte(updateTime.Day())
+}
 
-	// set whether or not this table has been created from scratch
-	dt.createdFromScratch = true
+// SetLastUpdatedFromBytes sets the dateOfLastUpdate to the YYMMDD byte encoding of the time specified.
+// The 0-index is assigned to updateYear, the 1-index byte to updateMonth, and the 2-index byte to updateDay.
+//
+// See dateOfLastUpdate for further detail on appropriate byte values.
+func (ud *dateOfLastUpdate) SetLastUpdatedFromBytes(timeBytes []byte) {
+	ud.updateYear = timeBytes[0]
+	ud.updateMonth = timeBytes[1]
+	ud.updateDay = timeBytes[2]
+}
 
-	// read dbase table header information
-	dt.fileSignature = 0x03
-	dt.updateYear = byte(time.Now().Year() - 1900)
-	dt.updateMonth = byte(time.Now().Month())
-	dt.updateDay = byte(time.Now().Day())
-	dt.numberOfRecords = 0
-	dt.numberOfBytesInHeader = 32
-	dt.lengthOfEachRecord = 0
+// LastUpdated interprets the byte trio in dateOfLastUpdate, returning as close a time.Time value as possible.
+// As no hours, minutes, seconds, etc.  are supported in the encoding, we assume 12:00:00AM for the return time.
+// Similarly, time.Local is assumed for the location.
+func (ud *dateOfLastUpdate) LastUpdated() time.Time {
+	updateTime := time.Date(
+		int(ud.updateYear)+yearOffset,
+		time.Month(ud.updateMonth),
+		int(ud.updateDay),
+		0, 0, 0, 0,
+		time.Local)
 
-	// create fieldMap to translate field name to index
-	dt.fieldMap = make(map[string]int)
+	return updateTime
+}
 
-	// Number of fields in dbase table
-	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+// LowDefTime takes a time.Time and returns a low-definition time.Time equivalent that follows the same simplification
+// approach as LastUpdated().
+func (ud *dateOfLastUpdate) LowDefTime(highDefTime time.Time) time.Time {
+	lowDefTime := time.Date(
+		highDefTime.Year(),
+		highDefTime.Month(),
+		highDefTime.Day(),
+		0, 0, 0, 0,
+		time.Local)
+	return lowDefTime
+}
 
-	s := make([]byte, dt.numberOfBytesInHeader)
+type records []record
 
-	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
+type record struct {
+	deletionFlag byte
+	recordValue  string
+}
 
-	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
+// tableManagement is an aggregate of structs and their methods that are not part of the dBase file
+// standard, but nevertheless useful in managing an in-memory DbfTable.
+type tableManagement struct {
+	numberOfFields int            // number of fields/columns in dbase file
+	fieldMap       map[string]int // used to map field names to index
 
-	// Since we are reading dbase file from the disk at least at this
-	// phase changing schema of dbase file is not allowed.
-	dt.dataEntryStarted = false
+	schemaLockable
+	createdFromScratch bool // used before adding new fields to increment nu
+	encodingSupport
+}
 
-	// set DbfTable dataStore slice that will store the complete file in memory
-	dt.dataStore = s
+// schemaLockable permits or denys updates to the database field-definitions. You can only add new records when the
+// schema has become locked.
+type schemaLockable struct {
+	schemaLocked bool
+}
 
-	dt.dataStore[0] = dt.fileSignature
-	dt.dataStore[1] = dt.updateYear
-	dt.dataStore[2] = dt.updateMonth
-	dt.dataStore[3] = dt.updateDay
+// encoding provides text encoding support for DbfTable
+type encodingSupport struct {
+	textEncoding string
+	decoder      mahonia.Decoder
+	encoder      mahonia.Encoder
+}
 
-	// no MDX file (index upon demand)
-	dt.dataStore[28] = 0x00
+func (es *encodingSupport) UseEncoding(encoding string) {
+	es.textEncoding = encoding
+	es.encoder = mahonia.NewEncoder(encoding)
+	es.decoder = mahonia.NewDecoder(encoding)
+}
 
-	// set dbase language driver
-	// Huston we have problem!
-	// There is no easy way to deal with encoding issues. At least at the moment
-	// I will try to find archaic encoding code defined by dbase standard (if there is any)
-	// for given encoding. If none match I will go with default ANSI.
-	//
-	// Despite this flag in set in dbase file, I will continue to use provide encoding for
-	// the everything except this file encoding flag.
-	//
-	// Why? To make sure at least if you know the real encoding you can process text accordingly.
-
-	if code, ok := encodingTable[lookup[encoding]]; ok {
-		dt.dataStore[29] = code
-	} else {
-		dt.dataStore[29] = 0x57 // ANSI
-	}
-
-	return dt
+// imageCache keeps a dbase table in memory as its byte array encoding
+type imageCache struct {
+	dataStore []byte
 }
 
 func (dt *DbfTable) AddBooleanField(fieldName string) (err error) {
@@ -147,8 +189,7 @@ func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces u
 }
 
 func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length byte, decimalPlaces uint8) (err error) {
-
-	if dt.dataEntryStarted {
+	if dt.schemaLocked {
 		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
 	}
 
@@ -164,18 +205,14 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	df.length = length
 	df.decimalPlaces = decimalPlaces
 
-	slice := dt.convertToByteSlice(df.name, maxFieldNameByteLength)
-
-	//fmt.Printf("len slice:%v\n", len(slice))
+	slice := dt.convertToByteSlice(df.name, fieldNameByteLength)
 
 	// Field name in ASCII (max 10 chracters)
 	for i := 0; i < len(slice); i++ {
 		df.fieldStore[i] = slice[i]
-		//fmt.Printf("i:%s\n", string(slice[i]))
 	}
 
-	// Field names are terminated by 00h
-	df.fieldStore[maxFieldNameByteLength] = endOfFieldMarker
+	df.fieldStore[fieldNameByteLength] = endOfFieldNameMarker
 
 	// Set field's data type
 	// C (Character)  All OEM code page characters.
@@ -204,17 +241,15 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	return
 }
 
-const maxFieldNameByteLength = 10
-
 func (dt *DbfTable) normaliseFieldName(name string) (s string) {
-	e := mahonia.NewEncoder(dt.fileEncoding)
+	e := mahonia.NewEncoder(dt.textEncoding)
 	b := []byte(e.ConvertString(name))
 
-	if len(b) > maxFieldNameByteLength {
-		b = b[0:maxFieldNameByteLength]
+	if len(b) > maxUsableNameByteLength {
+		b = b[0:maxUsableNameByteLength]
 	}
 
-	d := mahonia.NewDecoder(dt.fileEncoding)
+	d := mahonia.NewDecoder(dt.textEncoding)
 	s = d.ConvertString(string(b))
 
 	return
@@ -226,7 +261,7 @@ func (dt *DbfTable) normaliseFieldName(name string) (s string) {
   numberOfBytes
 */
 func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
-	e := mahonia.NewEncoder(dt.fileEncoding)
+	e := mahonia.NewEncoder(dt.textEncoding)
 	b := []byte(e.ConvertString(value))
 
 	if len(b) <= numberOfBytes {
@@ -267,9 +302,9 @@ func (dt *DbfTable) updateHeader() {
 	dt.dataStore[8] = s[0]
 	dt.dataStore[9] = s[1]
 
-	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // dont forget to add "1" for deletion marker which is 20h
+	dt.lengthOfEachRecord = lengthOfEachRecord + 1 // don't forget to add "1" for deletion marker which is 20h
 
-	// update the lenght of each record
+	// update the length of each record
 	s = uint32ToBytes(uint32(dt.lengthOfEachRecord))
 	dt.dataStore[10] = s[0]
 	dt.dataStore[11] = s[1]
@@ -319,17 +354,19 @@ func (dt *DbfTable) DecimalPlacesInField(fieldName string) (uint8, error) {
 		}
 	}
 
-	return 0, errors.New("Type of field \"" + fieldName + "\" is not Numeric or Float.")
+	return 0, errors.New("type of field \"" + fieldName + "\" is not Numeric or Float")
 }
 
 // AddNewRecord adds a new empty record to the table, and returns the index number of the record.
-func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
-
-	if dt.dataEntryStarted == false {
-		dt.dataEntryStarted = true
+func (dt *DbfTable) AddNewRecord() (newRecordNumber int, addErr error) {
+	if dt.lengthOfEachRecord <= 1 {
+		return -1, errors.New("attempted to add record with no fields defined")
 	}
 
+	dt.schemaLocked = true
+
 	newRecord := make([]byte, dt.lengthOfEachRecord)
+	newRecord[recordDeletionFlagIndex] = recordIsActive
 	dt.dataStore = appendSlice(dt.dataStore, newRecord)
 
 	// since row numbers are "0" based first we set newRecordNumber
@@ -345,12 +382,19 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int) {
 	dt.dataStore[7] = s[3]
 	//fmt.Printf("Number of rows after:%d\n", dt.numberOfRecords)
 
-	return newRecordNumber
+	return newRecordNumber, nil
 }
 
 // NumberOfRecords returns the number of records in the table
 func (dt *DbfTable) NumberOfRecords() int {
 	return int(dt.numberOfRecords)
+}
+
+// HasRecord returns true if the table has a record with the given number otherwise, false is returned.
+// Use this method before FieldValue() to avoid index-out-of-range errors.
+func (dt *DbfTable) HasRecord(recordNumber int) bool {
+	recordOffset := int(dt.numberOfBytesInHeader) + recordNumber*int(dt.lengthOfEachRecord)
+	return len(dt.dataStore) >= recordOffset+int(dt.lengthOfEachRecord)
 }
 
 // SetFieldValueByName sets the value for the given row and field name as specified
@@ -494,7 +538,7 @@ func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return dt.dataStore[offset:(offset + 1)][0] == 0x2A
+	return dt.dataStore[offset:(offset + 1)][recordDeletionFlagIndex] == recordIsDeleted
 }
 
 // GetRowAsSlice return the record values for the row specified as a string slice

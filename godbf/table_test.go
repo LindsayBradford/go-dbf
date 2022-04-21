@@ -240,7 +240,7 @@ func TestDbfTable_GetRowAsSlice_InitiallyEmptyStrings(t *testing.T) {
 	floatFieldName := "floatField"
 	tableUnderTest.AddBooleanField(floatFieldName)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	recordIndex, _ := tableUnderTest.AddNewRecord()
 
 	fieldValues := tableUnderTest.GetRowAsSlice(recordIndex)
 
@@ -274,7 +274,7 @@ func TestDbfTable_GetRowAsSlice(t *testing.T) {
 	expectedFloatFieldValue := "640.42"
 	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	recordIndex, _ := tableUnderTest.AddNewRecord()
 
 	tableUnderTest.SetFieldValueByName(recordIndex, boolFieldName, expectedBoolFieldValue)
 	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, expectedTextFieldValue)
@@ -316,7 +316,7 @@ func TestDbfTable_FieldValueByName(t *testing.T) {
 	expectedFloatFieldValue := "640.42"
 	tableUnderTest.AddFloatField(floatFieldName, 6, 2)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	recordIndex, _ := tableUnderTest.AddNewRecord()
 
 	tableUnderTest.SetFieldValueByName(recordIndex, boolFieldName, expectedBoolFieldValue)
 	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, expectedTextFieldValue)
@@ -336,9 +336,10 @@ func TestDbfTable_FieldValueByName_NonExistentField(t *testing.T) {
 
 	tableUnderTest := New(testEncoding)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	textFieldName := "textField"
+	tableUnderTest.AddTextField(textFieldName, 10)
 
-	_, valueError := tableUnderTest.FieldValueByName(recordIndex, "missingField")
+	_, valueError := tableUnderTest.FieldValueByName(0, "missingField")
 
 	g.Expect(valueError).ToNot(BeNil())
 	t.Log(valueError)
@@ -349,12 +350,20 @@ func TestDbfTable_SetFieldValueByName_NonExistentField(t *testing.T) {
 
 	tableUnderTest := New(testEncoding)
 
-	recordIndex := tableUnderTest.AddNewRecord()
-
-	setError := tableUnderTest.SetFieldValueByName(recordIndex, "missingField", "someText")
+	setError := tableUnderTest.SetFieldValueByName(0, "missingField", "someText")
 
 	g.Expect(setError).ToNot(BeNil())
 	t.Log(setError)
+}
+
+func TestDbfTable_AddRecordWithNoFieldsDefined_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	recordIndex, addErr := tableUnderTest.AddNewRecord()
+	g.Expect(addErr).ToNot(BeNil())
+	g.Expect(recordIndex).To(BeEquivalentTo(-1))
 }
 
 func TestDbfTable_Int64FieldValueByName(t *testing.T) {
@@ -367,7 +376,8 @@ func TestDbfTable_Int64FieldValueByName(t *testing.T) {
 	expectedIntFieldValue := fmt.Sprintf("%d", expectedIntValue)
 	tableUnderTest.AddNumberField(intFieldName, 6, 2)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	recordIndex, addErr := tableUnderTest.AddNewRecord()
+	g.Expect(addErr).To(BeNil())
 
 	tableUnderTest.SetFieldValueByName(recordIndex, intFieldName, expectedIntFieldValue)
 
@@ -387,7 +397,8 @@ func TestDbfTable_Float64FieldValueByName(t *testing.T) {
 	expectedFloatFieldValue := fmt.Sprintf("%.2f", expectedFloatValue)
 	tableUnderTest.AddFloatField(floatFieldName, 10, 2)
 
-	recordIndex := tableUnderTest.AddNewRecord()
+	recordIndex, addErr := tableUnderTest.AddNewRecord()
+	g.Expect(addErr).To(BeNil())
 
 	tableUnderTest.SetFieldValueByName(recordIndex, floatFieldName, expectedFloatFieldValue)
 
