@@ -29,9 +29,9 @@ func NewFromByteArray(data []byte, fileEncoding string) (table *DbfTable, newErr
 func unpackHeader(s []byte, dt *DbfTable) error {
 	dt.fileSignature = s[0]
 	dt.SetLastUpdatedFromBytes(s[1:4])
-	dt.numberOfRecords = uint32(s[4]) | (uint32(s[5]) << 8) | (uint32(s[6]) << 16) | (uint32(s[7]) << 24)
-	dt.numberOfBytesInHeader = uint16(s[8]) | (uint16(s[9]) << 8)
-	dt.lengthOfEachRecord = uint16(s[10]) | (uint16(s[11]) << 8)
+	dt.SetNumberOfRecordsFromBytes(s[4:8])
+	dt.SetNumberOfBytesInHeaderFromBytes(s[8:10])
+	dt.SetLengthOfEachRecordFromBytes(s[10:12])
 
 	if fieldErr := unpackFields(s, dt); fieldErr != nil {
 		return fieldErr
@@ -85,7 +85,7 @@ func unpackField(s []byte, dt *DbfTable, fieldIndex int) error {
 func deriveFieldName(s []byte, dt *DbfTable, offset int) string {
 	nameBytes := s[offset : offset+fieldNameByteLength]
 
-	// Max usable field length is 10 bytes, where the 11th should contain the eod of field marker.
+	// Max usable field length is 10 bytes, where the 11th should contain the end of field marker.
 	endOfFieldIndex := bytes.Index(nameBytes, []byte{endOfFieldNameMarker})
 	if endOfFieldIndex == -1 {
 		msg := fmt.Sprintf("end-of-field marker missing from field bytes, offset [%d,%d]", offset, offset+fieldNameByteLength)
@@ -129,14 +129,7 @@ func lockSchema(dt *DbfTable) {
 
 // New creates a new dbase table from scratch for the given character encoding
 func New(encoding string) (table *DbfTable) {
-
-	// Create and populate DbaseTable struct
 	dt := new(DbfTable)
-
-	dt.UseEncoding(encoding)
-
-	// set whether or not this table has been created from scratch
-	dt.createdFromScratch = true
 
 	// read dbase table header information
 	dt.fileSignature = 0x03
@@ -146,24 +139,17 @@ func New(encoding string) (table *DbfTable) {
 	dt.lengthOfEachRecord = 0
 	dt.fieldTerminator = 0x0D
 
+	dt.UseEncoding(encoding)
+	dt.createdFromScratch = true
 	// create fieldMap to translate field name to index
 	dt.fieldMap = make(map[string]int)
+	dt.schemaLocked = false
 
 	// Number of fields in dbase table
 	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
 	dt.eofMarker = eofMarker
 
 	s := make([]byte, dt.numberOfBytesInHeader+1) // +1 is for footer
-
-	//fmt.Printf("number of fields:\n%#v\n", numberOfFields)
-	//fmt.Printf("DbfReader:\n%#v\n", int(dt.Fields[2].fixedFieldLength))
-
-	//fmt.Printf("num records in table:%v\n", (dt.numberOfRecords))
-	//fmt.Printf("fixedFieldLength of each record:%v\n", (dt.lengthOfEachRecord))
-
-	// Since we are reading dbase file from the disk at least at this
-	// phase changing schema of dbase file is not allowed.
-	dt.schemaLocked = false
 
 	// set DbfTable dataStore slice that will store the complete file in memory
 	dt.dataStore = s
@@ -183,7 +169,7 @@ func New(encoding string) (table *DbfTable) {
 	// for given encoding. If none match I will go with default ANSI.
 	//
 	// Despite this flag in set in dbase file, I will continue to use provide encoding for
-	// the everything except this file encoding flag.
+	// everything except this file encoding flag.
 	//
 	// Why? To make sure at least if you know the real encoding you can process text accordingly.
 
