@@ -1,7 +1,9 @@
 package godbf
 
 import (
+	"errors"
 	. "github.com/onsi/gomega"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,7 +18,7 @@ const realFile = "testdata/122016B1.DBF"
 
 // For reference: https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE
 
-func TestDbfTable_NewFromValidFile_NoError(t *testing.T) {
+func TestNewFromFile_ValidFile_NoError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	_, readError := NewFromFile(validTestFile, testEncoding)
@@ -24,7 +26,7 @@ func TestDbfTable_NewFromValidFile_NoError(t *testing.T) {
 	g.Expect(readError).To(BeNil())
 }
 
-func TestDbfTable_NewFromValidFile_TableIsCorrect(t *testing.T) {
+func TestNewFromFile_ValidFile_TableIsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest, _ := NewFromFile(validTestFile, testEncoding)
@@ -37,7 +39,7 @@ func TestDbfTable_NewFromValidFile_TableIsCorrect(t *testing.T) {
 	verifyTableIsCorrect(tableUnderTest, g)
 }
 
-func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
+func TestNewFromByteArray_TableIsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
@@ -49,7 +51,7 @@ func TestDbfTable_NewFromByteArray_TableIsCorrect(t *testing.T) {
 	verifyTableIsCorrect(tableUnderTest, g)
 }
 
-func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
+func TestSaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
@@ -72,7 +74,7 @@ func TestDbfTable_SaveToFile_LoadOfSavedIsCorrect(t *testing.T) {
 	g.Expect(removeErr).To(BeNil())
 }
 
-func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
+func TestSaveToFile_FromNew_NoError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest := New(testEncoding)
@@ -97,7 +99,7 @@ func TestDbfTable_SaveToFileOfNew_NoError(t *testing.T) {
 	g.Expect(removeErr).To(BeNil())
 }
 
-func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
+func TestNewFromByteArray_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
@@ -115,7 +117,7 @@ func TestDbfTable_EndOfFieldMarkerMissing_TableParsingError(t *testing.T) {
 	g.Expect(byteArrayErr.Error()).To(ContainSubstring("end-of-field marker missing"))
 }
 
-func TestDbfTable_NewFromLessThanActualRecords_Errors(t *testing.T) {
+func TestNewFromFile_NewFromLessThanActualRecords_Errors(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
@@ -184,4 +186,121 @@ func TestFieldsNameCorrectDetect(t *testing.T) {
 
 	expectedFieldNames := []string{"REGN", "PLAN", "NUM_SC", "A_P", "VR", "VV", "VITG", "ORA", "OVA", "OITGA", "ORP", "OVP", "OITGP", "IR", "IV", "IITG", "DT", "PRIZ"}
 	g.Expect(tableUnderTest.FieldNames()).To(Equal(expectedFieldNames))
+}
+
+func TestNewFromFile_ReaderPanics_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	reader = panicReader
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+	t.Log(readError)
+}
+
+func panicReader(r io.Reader, buf []byte) (int, error) {
+	panic("I'm a little panic teapot")
+}
+
+func TestNewFromFile_ReaderErrors_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	reader = errorReader
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+
+	t.Log(readError)
+}
+
+func errorReader(r io.Reader, buf []byte) (int, error) {
+	return -1, errors.New("i'm a little error teapot")
+}
+
+func TestNewFromFile_OpenErrors_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fsWrapper = openErrorFileSystem{}
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+	t.Log(readError)
+}
+
+type openErrorFileSystem struct {
+	osFileSystem
+}
+
+func (openErrorFileSystem) Open(name string) (file, error) {
+	return nil, errors.New("Open error")
+}
+
+func TestNewFromFile_StatErrors_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fsWrapper = statErrorFileSystem{}
+	_, readError := NewFromFile(lessThanActualRecordsFile, testEncoding)
+
+	g.Expect(readError).ToNot(BeNil())
+	t.Log(readError)
+}
+
+type statErrorFileSystem struct {
+	osFileSystem
+}
+
+func (statErrorFileSystem) Stat(name string) (os.FileInfo, error) {
+	return nil, errors.New("Stat error")
+}
+
+func TestSaveToFile_CreateErrors_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	tableFromBytes, _ := NewFromByteArray(rawFileBytes, testEncoding)
+	rawFileBytes = nil
+
+	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
+
+	fsWrapper = createErrorFileSystem{}
+	saveErr := SaveToFile(tableFromBytes, tempFilename)
+
+	g.Expect(saveErr).ToNot(BeNil())
+	t.Log(saveErr)
+}
+
+type createErrorFileSystem struct {
+	osFileSystem
+}
+
+func (createErrorFileSystem) Create(name string) (*os.File, error) {
+	return nil, errors.New("Create error")
+}
+
+func TestSaveToFile_CreatePanics_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	rawFileBytes, loadErr := ioutil.ReadFile(validTestFile)
+	g.Expect(loadErr).To(BeNil())
+
+	tableFromBytes, _ := NewFromByteArray(rawFileBytes, testEncoding)
+	rawFileBytes = nil
+
+	tempFilename := filepath.Join("testdata", "tempSavedTable.dbf")
+
+	fsWrapper = createPanicFileSystem{}
+	saveErr := SaveToFile(tableFromBytes, tempFilename)
+
+	g.Expect(saveErr).ToNot(BeNil())
+	t.Log(saveErr)
+}
+
+type createPanicFileSystem struct {
+	osFileSystem
+}
+
+func (createPanicFileSystem) Create(name string) (*os.File, error) {
+	panic(errors.New("Create panic"))
 }

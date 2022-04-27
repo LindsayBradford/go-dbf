@@ -31,7 +31,7 @@ func SaveToFile(dt *DbfTable, filename string) (saveErr error) {
 		}
 	}()
 
-	f, createErr := os.Create(filename)
+	f, createErr := fsWrapper.Create(filename)
 	if createErr != nil {
 		return createErr
 	}
