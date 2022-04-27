@@ -407,3 +407,25 @@ func TestDbfTable_Float64FieldValueByName(t *testing.T) {
 	g.Expect(valueError).To(BeNil())
 	g.Expect(actualFloatFieldValue).To(BeNumerically("==", expectedFloatValue))
 }
+
+func TestDbfTable_FieldDescriptor(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	const fieldName = "floatField"
+	const fieldLength = uint8(10)
+	const decimalPlaces = uint8(2)
+
+	floatFieldName := fieldName
+	tableUnderTest.AddFloatField(floatFieldName, fieldLength, decimalPlaces)
+
+	fieldUnderTest := tableUnderTest.Fields()[0]
+
+	g.Expect(fieldUnderTest.Name()).To(Equal(fieldName))
+	g.Expect(fieldUnderTest.FieldType()).To(Equal(Float))
+	g.Expect(fieldUnderTest.FieldType()).To(Equal(Float))
+	g.Expect(fieldUnderTest.Length()).To(Equal(fieldLength))
+	g.Expect(fieldUnderTest.DecimalPlaces()).To(Equal(decimalPlaces))
+
+}
