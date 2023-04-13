@@ -1,6 +1,6 @@
 # go-dbf
 [![Build Status](https://travis-ci.com/LindsayBradford/go-dbf.svg?branch=master)](https://travis-ci.com/LindsayBradford/go-dbf)
-[![GoDoc](https://godoc.org/github.com/LindsayBradford/go-dbf/godbf?status.svg)](https://godoc.org/github.com/LindsayBradford/go-dbf/godbf)
+[![GoDoc](https://godoc.org/github.com/LindsayBradford/go-dbfstatus.svg)](https://godoc.org/github.com/LindsayBradford/go-dbf)
 
 
 A pure Go library for reading and writing [dBase/xBase](http://en.wikipedia.org/wiki/DBase#File_formats) database files
@@ -10,13 +10,13 @@ This project is a part of go-shp library. [go-shp](https://github.com/jonas-p/go
 You can incorporate the library into your local workspace with the following 'go get' command:
 
 ```go
-go get github.com/LindsayBradford/go-dbf/godbf
+go get github.com/LindsayBradford/go-dbf
 ```
 
 Code needing to call into the library needs to include the following import statement:
 ```go
 import (
-  "github.com/LindsayBradford/go-dbf/godbf"
+  "github.com/LindsayBradford/go-dbf"
 )
 ```
 

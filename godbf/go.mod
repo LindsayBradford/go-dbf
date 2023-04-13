@@ -1,4 +1,4 @@
-module github.com/LindsayBradford/go-dbf/godbf
+module github.com/LindsayBradford/go-dbf
 
 // 	To sync the vendor directory, run:  go mod vendor from the directory housing this file.
 
