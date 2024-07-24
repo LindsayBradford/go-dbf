@@ -204,7 +204,7 @@ func (dt *DbfTable) AddFloatField(fieldName string, length byte, decimalPlaces u
 
 func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length byte, decimalPlaces uint8) (err error) {
 	if dt.schemaLocked {
-		return errors.New("Once you start entering data to the dbase table or open an existing dbase file, altering dbase table schema is not allowed!")
+		return errors.New("altering dbase table schema is not allowed once you start storing table data to or open an existing dbase file")
 	}
 
 	normalizedFieldName := dt.normaliseFieldName(fieldName)
@@ -270,9 +270,9 @@ func (dt *DbfTable) normaliseFieldName(name string) (s string) {
 }
 
 /*
-  getByteSlice converts value to byte slice according to given encoding and return
-  a slice that is fixedFieldLength equals to numberOfBytes or less if the string is shorter than
-  numberOfBytes
+getByteSlice converts value to byte slice according to given encoding and return
+a slice that is fixedFieldLength equals to numberOfBytes or less if the string is shorter than
+numberOfBytes
 */
 func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byte) {
 	e := mahonia.NewEncoder(dt.textEncoding)
@@ -482,7 +482,7 @@ func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffse
 	}
 }
 
-//FieldValue returns the content for the record at the given row and field index as a string
+// FieldValue returns the content for the record at the given row and field index as a string
 // If the row or field index is invalid, an error is returned .
 func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
@@ -547,7 +547,7 @@ func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, e
 	return
 }
 
-//RowIsDeleted returns whether a row has marked as deleted
+// RowIsDeleted returns whether a row has marked as deleted
 func (dt *DbfTable) RowIsDeleted(row int) bool {
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
