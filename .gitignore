@@ -4,3 +4,4 @@ go-dbf.iml
 
 #Ignore all subdirectories of vendor.  govendor's  vendor.json governs dependencies
 vendor/*/
+/vendor/modules.txt
