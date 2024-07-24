@@ -548,25 +548,27 @@ func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, e
 }
 
 // RowIsDeleted returns whether a row has marked as deleted
-func (dt *DbfTable) RowIsDeleted(row int) bool {
+func (dt *DbfTable) RowIsDeleted(row int) (bool, error) {
+	if row >= dt.NumberOfRecords() {
+		return false, errors.New("row out of bounds")
+	}
+
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
-	return dt.dataStore[offset:(offset + 1)][recordDeletionFlagIndex] == recordIsDeleted
+	return dt.dataStore[offset:(offset + 1)][recordDeletionFlagIndex] == recordIsDeleted, nil
 }
 
 // SetRowIsDeleted sets a row as deleted
 func (dt *DbfTable) SetRowIsDeleted(row int) (err error) {
+	if row >= dt.NumberOfRecords() {
+		return errors.New("row out of bounds")
+	}
+
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 	offset = offset + (row * lengthOfRecord)
 	dt.dataStore[offset:(offset + 1)][recordDeletionFlagIndex] = recordIsDeleted
-
-	if !dt.RowIsDeleted(row) {
-		err = errors.New("could not mark row as deleted")
-		return
-	}
-
 	return
 }
 
