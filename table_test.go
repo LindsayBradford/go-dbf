@@ -427,5 +427,87 @@ func TestDbfTable_FieldDescriptor(t *testing.T) {
 	g.Expect(fieldUnderTest.FieldType()).To(Equal(Float))
 	g.Expect(fieldUnderTest.Length()).To(Equal(fieldLength))
 	g.Expect(fieldUnderTest.DecimalPlaces()).To(Equal(decimalPlaces))
+}
 
+func TestDbfTable_RowIsDeleted(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	const textFieldName = "textField"
+	tableUnderTest.AddTextField(textFieldName, 10)
+
+	const floatFieldName = "floatField"
+	const fieldLength = uint8(10)
+	const decimalPlaces = uint8(2)
+	tableUnderTest.AddFloatField(floatFieldName, fieldLength, decimalPlaces)
+
+	recordIndex, _ := tableUnderTest.AddNewRecord()
+
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "some text")
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "0")
+
+	g.Expect(tableUnderTest.RowIsDeleted(recordIndex)).To(BeFalse())
+
+	deletionError := tableUnderTest.SetRowIsDeleted(recordIndex)
+
+	g.Expect(deletionError).To(BeNil())
+	g.Expect(tableUnderTest.RowIsDeleted(recordIndex)).To(BeTrue())
+}
+
+func TestDbfTable_RowIsDeleted_InvalidRow_Errors(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	isDeleted, deletionError := tableUnderTest.RowIsDeleted(1)
+	g.Expect(isDeleted).To(BeFalse())
+	g.Expect(deletionError).ToNot(BeNil())
+}
+
+func TestDbfTable_MiddleRowIsDeleted_(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+
+	const textFieldName = "textField"
+	tableUnderTest.AddTextField(textFieldName, 10)
+
+	const floatFieldName = "floatField"
+	const fieldLength = uint8(10)
+	const decimalPlaces = uint8(2)
+	tableUnderTest.AddFloatField(floatFieldName, fieldLength, decimalPlaces)
+
+	recordIndex, _ := tableUnderTest.AddNewRecord()
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "some text 1")
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "1")
+
+	recordIndex, _ = tableUnderTest.AddNewRecord()
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "some text 2")
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "2")
+
+	recordIndex, _ = tableUnderTest.AddNewRecord()
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "some text 3")
+	tableUnderTest.SetFieldValueByName(recordIndex, textFieldName, "3")
+
+	deletionError := tableUnderTest.SetRowIsDeleted(1)
+
+	g.Expect(deletionError).To(BeNil())
+	g.Expect(tableUnderTest.RowIsDeleted(0)).To(BeFalse())
+	g.Expect(tableUnderTest.RowIsDeleted(1)).To(BeTrue())
+	g.Expect(tableUnderTest.RowIsDeleted(2)).To(BeFalse())
+
+	deletionError = tableUnderTest.SetRowIsDeleted(2)
+
+	g.Expect(deletionError).To(BeNil())
+	g.Expect(tableUnderTest.RowIsDeleted(0)).To(BeFalse())
+	g.Expect(tableUnderTest.RowIsDeleted(1)).To(BeTrue())
+	g.Expect(tableUnderTest.RowIsDeleted(2)).To(BeTrue())
+
+	deletionError = tableUnderTest.SetRowIsDeleted(0)
+
+	g.Expect(deletionError).To(BeNil())
+	g.Expect(tableUnderTest.RowIsDeleted(0)).To(BeTrue())
+	g.Expect(tableUnderTest.RowIsDeleted(1)).To(BeTrue())
+	g.Expect(tableUnderTest.RowIsDeleted(2)).To(BeTrue())
 }
