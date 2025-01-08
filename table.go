@@ -52,7 +52,7 @@ type header struct {
 
 	// columns of dbase file
 	fields          []FieldDescriptor
-	fieldTerminator int8 // 0Dh stored as the field terminator.
+	fieldTerminator byte
 }
 
 // SetNumberOfRecordsFromBytes sets numberOfRecords from a byte array.
@@ -244,8 +244,6 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 	// Applicable only to number/float
 	df.fieldStore[17] = df.decimalPlaces
 
-	//fmt.Printf("addField | append:%v\n", df)
-
 	dt.fields = append(dt.fields, *df)
 
 	// if createdFromScratch we need to update dbase header to reflect the changes we have made
@@ -389,7 +387,6 @@ func (dt *DbfTable) AddNewRecord() (newRecordNumber int, addErr error) {
 	// and then increment number of records in dbase table
 	newRecordNumber = int(dt.numberOfRecords)
 
-	//fmt.Printf("Number of rows before:%d\n", dt.numberOfRecords)
 	dt.numberOfRecords++
 	s := uint32ToBytes(dt.numberOfRecords)
 	dt.dataStore[4] = s[0]
@@ -430,12 +427,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 
 	fieldLength := int(dt.fields[fieldIndex].length)
 
-	//DEBUG
-
-	//fmt.Printf("dt.numberOfBytesInHeader=%v\n\n", dt.numberOfBytesInHeader)
-	//fmt.Printf("dt.lengthOfEachRecord=%v\n\n", dt.lengthOfEachRecord)
-
-	// locate the offset of the field in DbfTable dataStore
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
 
@@ -461,7 +452,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 		}
 	case Float, Numeric:
 		for i := 0; i < fieldLength; i++ {
-			// fmt.Printf("i:%v\n", i)
 			if i < len(b) {
 				dt.dataStore[offset+recordOffset+(fieldLength-i-1)] = b[(len(b)-1)-i]
 			} else {
@@ -471,11 +461,6 @@ func (dt *DbfTable) SetFieldValue(row int, fieldIndex int, value string) (err er
 	}
 
 	return
-
-	//fmt.Printf("field value:%#v\n", []byte(value))
-	//fmt.Printf("field index:%#v\n", fieldIndex)
-	//fmt.Printf("field fixedFieldLength:%v\n", dt.Fields[fieldIndex].fixedFieldLength)
-	//fmt.Printf("string to byte:%#v\n", b)
 }
 
 func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffset int) {
@@ -508,13 +493,8 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	enforceBlankPadding(temp)
 
 	s := dt.decoder.ConvertString(string(temp))
-	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
-
 	value = strings.TrimSpace(s)
 
-	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
-	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
-	//value = string(dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
 	return
 }
 

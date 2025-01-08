@@ -116,6 +116,10 @@ func verifyTableAgainstRawFooter(s []byte, dt *DbfTable) {
 }
 
 func verifyTableAgainstRawHeader(s []byte, dt *DbfTable) {
+	verifyByteArraySizeAgainstExpected(s, dt)
+}
+
+func verifyByteArraySizeAgainstExpected(s []byte, dt *DbfTable) {
 	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
 	actualSize := uint32(len(s))
 	if actualSize != expectedSize {
@@ -137,7 +141,6 @@ func New(encoding string) (table *DbfTable) {
 	dt.numberOfRecords = 0
 	dt.numberOfBytesInHeader = 32
 	dt.lengthOfEachRecord = 0
-	dt.fieldTerminator = 0x0D
 
 	dt.UseEncoding(encoding)
 	dt.createdFromScratch = true
