@@ -13,9 +13,10 @@ const (
 	null       byte = 0x00
 	blank      byte = 0x20
 
-	fieldNameByteLength          = 11
-	maxUsableNameByteLength      = fieldNameByteLength - 1
-	endOfFieldNameMarker    byte = 0x0
+	fieldNameByteLength                 = 11
+	maxUsableNameByteLength             = fieldNameByteLength - 1
+	endOfFieldNameMarker           byte = 0x0
+	fieldDescriptorArrayTerminator byte = 0x0D
 
 	recordDeletionFlagIndex = 0
 	recordIsActive          = blank
@@ -249,7 +250,7 @@ func (dt *DbfTable) addField(fieldName string, fieldType DbaseDataType, length b
 
 	// if createdFromScratch we need to update dbase header to reflect the changes we have made
 	if dt.createdFromScratch {
-		dt.updateHeader()
+		dt.updateDataStore()
 	}
 
 	return
@@ -286,10 +287,10 @@ func (dt *DbfTable) convertToByteSlice(value string, numberOfBytes int) (s []byt
 	return
 }
 
-func (dt *DbfTable) updateHeader() {
+func (dt *DbfTable) updateDataStore() {
 	// first create a slice from initial 32 bytes of datastore as the foundation of the new slice
 	// later we will set this slice to dt.dataStore to create the new header slice
-	slice := dt.dataStore[0:32]
+	slice := dt.dataStore[:32]
 
 	// set dbase file signature
 	slice[0] = 0x03
@@ -304,8 +305,7 @@ func (dt *DbfTable) updateHeader() {
 		dt.fieldMap[dt.Fields()[i].name] = i
 	}
 
-	// end of file header terminator (0Dh)
-	slice = append(slice, 0x0D)
+	slice = append(slice, fieldDescriptorArrayTerminator)
 
 	// now reset dt.dataStore slice with the updated one
 	dt.dataStore = slice
@@ -322,6 +322,8 @@ func (dt *DbfTable) updateHeader() {
 	s = uint32ToBytes(uint32(dt.lengthOfEachRecord))
 	dt.dataStore[10] = s[0]
 	dt.dataStore[11] = s[1]
+
+	dt.dataStore = append(dt.dataStore, dt.eofMarker)
 
 	return
 }

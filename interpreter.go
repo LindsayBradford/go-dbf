@@ -146,10 +146,10 @@ func New(encoding string) (table *DbfTable) {
 	dt.schemaLocked = false
 
 	// Number of fields in dbase table
-	dt.numberOfFields = int((dt.numberOfBytesInHeader - 1 - 32) / 32)
+	dt.numberOfFields = 0
 	dt.eofMarker = eofMarker
 
-	s := make([]byte, dt.numberOfBytesInHeader+1) // +1 is for footer
+	s := make([]byte, dt.numberOfBytesInHeader)
 
 	// set DbfTable dataStore slice that will store the complete file in memory
 	dt.dataStore = s
@@ -179,9 +179,7 @@ func New(encoding string) (table *DbfTable) {
 		dt.dataStore[29] = 0x57 // ANSI
 	}
 
-	dt.updateHeader()
-	// no records as yet
-	dt.dataStore = append(dt.dataStore, dt.eofMarker)
+	dt.updateDataStore()
 
 	return dt
 }
