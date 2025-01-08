@@ -120,9 +120,10 @@ func TestSaveToFile_FromNewWithField_NoError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tableUnderTest := New(testEncoding)
-	tableUnderTest.AddTextField("SomeTextField", 4)
+	addErr := tableUnderTest.AddTextField("SomeTextField", 4)
 	sampleTime := tableUnderTest.LowDefTime(time.Now())
 
+	g.Expect(addErr).To(BeNil())
 	g.Expect(len(tableUnderTest.Fields())).To(Equal(1))
 	g.Expect(tableUnderTest.NumberOfRecords()).To(BeZero())
 	g.Expect(tableUnderTest.LastUpdated()).To(Equal(sampleTime))
