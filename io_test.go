@@ -117,6 +117,32 @@ func TestNewFromByteArray_EndOfFieldMarkerMissing_TableParsingError(t *testing.T
 	g.Expect(byteArrayErr.Error()).To(ContainSubstring("end-of-field marker missing"))
 }
 
+func TestSaveToFile_FromNewWithField_NoError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tableUnderTest := New(testEncoding)
+	tableUnderTest.AddTextField("SomeTextField", 4)
+	sampleTime := tableUnderTest.LowDefTime(time.Now())
+
+	g.Expect(len(tableUnderTest.Fields())).To(Equal(1))
+	g.Expect(tableUnderTest.NumberOfRecords()).To(BeZero())
+	g.Expect(tableUnderTest.LastUpdated()).To(Equal(sampleTime))
+
+	tempFilename := filepath.Join("testdata", "tempSavedTableWithField.dbf")
+	saveErr := SaveToFile(tableUnderTest, tempFilename)
+	g.Expect(saveErr).To(BeNil())
+
+	loadedTable, loadErr := NewFromFile(tempFilename, testEncoding)
+	g.Expect(loadErr).To(BeNil())
+
+	g.Expect(loadedTable.NumberOfRecords()).To(BeZero())
+	g.Expect(len(loadedTable.Fields())).To(BeZero())
+	g.Expect(loadedTable.LastUpdated()).To(Equal(sampleTime))
+
+	removeErr := os.Remove(tempFilename)
+	g.Expect(removeErr).To(BeNil())
+}
+
 func TestNewFromFile_NewFromLessThanActualRecords_Errors(t *testing.T) {
 	g := NewGomegaWithT(t)
 
