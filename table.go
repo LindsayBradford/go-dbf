@@ -490,22 +490,24 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 
 	temp := dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.fields[fieldIndex].length))]
 
-	enforceBlankPadding(temp)
+	// Some Dbf encoders pad with null chars instead of blanks, despite blank padding being required:
+	// https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+	//
+	// We don't change the input slice, which would be unexpected and breaks use cases
+	// with memory-mapped files, see https://github.com/LindsayBradford/go-dbf/pull/40
+	//
+	// To solve this, we simply truncate if there is a null character.
+	for i, c := range temp {
+		if c == null {
+			temp = temp[:i]
+			break
+		}
+	}
 
 	s := dt.decoder.ConvertString(string(temp))
 	value = strings.TrimSpace(s)
 
 	return
-}
-
-// Some Dbf encoders pad with null chars instead of blanks, this forces blanks as per
-// https://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
-func enforceBlankPadding(temp []byte) {
-	for i := 0; i < len(temp); i++ {
-		if temp[i] == null {
-			temp[i] = blank
-		}
-	}
 }
 
 // Float64FieldValueByName returns the value of a field given row number and name provided as a float64
