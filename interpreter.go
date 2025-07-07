@@ -122,6 +122,9 @@ func verifyTableAgainstRawHeader(s []byte, dt *DbfTable) {
 func verifyByteArraySizeAgainstExpected(s []byte, dt *DbfTable) {
 	expectedSize := uint32(dt.numberOfBytesInHeader) + dt.numberOfRecords*uint32(dt.lengthOfEachRecord) + 1
 	actualSize := uint32(len(s))
+	if dt.eofMarker != eofMarker {
+		actualSize = actualSize - 1
+	}
 	if actualSize != expectedSize {
 		panic(fmt.Errorf("encoded content is %d bytes, but header expected %d", actualSize, expectedSize))
 	}
