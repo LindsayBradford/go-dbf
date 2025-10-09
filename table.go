@@ -493,7 +493,7 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	enforceBlankPadding(temp)
 
 	s := dt.decoder.ConvertString(string(temp))
-	value = strings.TrimSpace(s)
+	value = s
 
 	return
 }
